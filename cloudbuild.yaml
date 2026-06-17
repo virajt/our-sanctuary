@@ -1,0 +1,21 @@
+steps:
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'our-sanctuary-service'
+      - '--source'
+      - '.'
+      - '--region'
+      - 'australia-southeast1'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'GEMINI_API_KEY=${_GEMINI_KEY}'
+      - '--project'
+      - 'sarah-chief-of-staff-on-cli'
+      - '--quiet'
+options:
+  logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _GEMINI_KEY: ''
