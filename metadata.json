@@ -1,0 +1,6 @@
+{
+  "name": "Our Sanctuary",
+  "description": "An intimate, private sanctuary for couples. Includes Wicked Chamber, Private Gallery, Period Tracker, mutual Gifts, Admin Controls, and an Ambient Music Player.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

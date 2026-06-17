@@ -1,0 +1,178 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-luxury-blank: #050505;
+  --color-luxury-950: #0a0a0a;
+  --color-luxury-900: rgba(255, 255, 255, 0.03);
+  --color-luxury-850: rgba(255, 255, 255, 0.05);
+  --color-luxury-800: rgba(255, 255, 255, 0.08);
+  --color-luxury-700: rgba(255, 255, 255, 0.12);
+  --color-luxury-600: rgba(255, 255, 255, 0.18);
+  --color-luxury-500: rgba(255, 255, 255, 0.25);
+  
+  --color-gold-100: #fee2e2;
+  --color-gold-200: #fecaca;
+  --color-gold-300: #fca5a5;
+  --color-gold-400: #ef4444;
+  --color-gold-500: #b91c1c;
+  --color-gold-550: #991b1b;
+  --color-gold-600: #7f1d1d;
+  
+  --color-pink-100: #fee2e2;
+  --color-pink-200: #fecaca;
+  --color-pink-300: #fca5a5;
+  --color-pink-400: #ef4444;
+  --color-pink-500: #b91c1c;
+  --color-pink-600: #7f1d1d;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-luxury-blank);
+  color: #e0e0e0;
+  overflow-x: hidden;
+}
+
+/* Glass panel global overrides to enforce the elegant glassmorphic dark theme */
+.bg-luxury-900, .bg-luxury-900\/60, .bg-luxury-900\/80, .bg-luxury-900\/85, .bg-luxury-905\/80 {
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(12px) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.bg-luxury-950, .bg-luxury-950\/80, .bg-luxury-950\/65, .bg-luxury-950\/60, .bg-luxury-950\/50, .bg-luxury-950\/40 {
+  background: rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(12px) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.border-luxury-800, .border-luxury-850, .border-luxury-800\/80 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Custom interactive overrides for buttons, borders, and layouts */
+#sanctuary-app.theme-passionate-red {
+  background-color: #050505 !important;
+  background-image: 
+    radial-gradient(circle at top right, rgba(153, 27, 27, 0.12), transparent 60%), 
+    radial-gradient(circle at bottom left, rgba(67, 20, 7, 0.15), transparent 60%),
+    radial-gradient(rgba(255, 255, 255, 0.03) 1.2px, transparent 1.2px) !important;
+  background-size: 100% 100%, 100% 100%, 24px 24px !important;
+  background-attachment: fixed;
+}
+
+#sanctuary-app.theme-midnight-blue {
+  background-color: #02020a !important;
+  background-image: 
+    radial-gradient(circle at top right, rgba(29, 78, 216, 0.12), transparent 60%), 
+    radial-gradient(circle at bottom left, rgba(15, 23, 42, 0.25), transparent 60%),
+    radial-gradient(rgba(255, 255, 255, 0.03) 1.2px, transparent 1.2px) !important;
+  background-size: 100% 100%, 100% 100%, 24px 24px !important;
+  background-attachment: fixed;
+}
+
+#sanctuary-app.theme-golden-hour {
+  background-color: #080502 !important;
+  background-image: 
+    radial-gradient(circle at top right, rgba(217, 119, 6, 0.12), transparent 60%), 
+    radial-gradient(circle at bottom left, rgba(120, 53, 15, 0.15), transparent 60%),
+    radial-gradient(rgba(255, 255, 255, 0.03) 1.2px, transparent 1.2px) !important;
+  background-size: 100% 100%, 100% 100%, 24px 24px !important;
+  background-attachment: fixed;
+}
+
+#sanctuary-app {
+  background-color: #050505;
+  background-image: 
+    radial-gradient(circle at top right, rgba(153, 27, 27, 0.12), transparent 60%), 
+    radial-gradient(circle at bottom left, rgba(67, 20, 7, 0.15), transparent 60%),
+    radial-gradient(rgba(255, 255, 255, 0.03) 1.2px, transparent 1.2px) !important;
+  background-size: 100% 100%, 100% 100%, 24px 24px !important;
+  background-attachment: fixed;
+}
+
+/* Red glow and card effects across themes */
+.theme-passionate-red .glow-red {
+  box-shadow: 0 0 25px rgba(185, 28, 28, 0.15) !important;
+}
+.theme-midnight-blue .glow-red {
+  box-shadow: 0 0 25px rgba(29, 78, 216, 0.25) !important;
+}
+.theme-golden-hour .glow-red {
+  box-shadow: 0 0 25px rgba(217, 119, 6, 0.25) !important;
+}
+.glow-red {
+  box-shadow: 0 0 25px rgba(185, 28, 28, 0.15) !important;
+}
+
+/* Redefining Tailwind standards dynamically to redirect color palettes without invasiveness */
+.theme-midnight-blue {
+  --color-red-100: #dbeafe !important;
+  --color-red-200: #bfdbfe !important;
+  --color-red-300: #93c5fd !important;
+  --color-red-350: #60a5fa !important;
+  --color-red-400: #60a5fa !important;
+  --color-red-500: #3b82f6 !important;
+  --color-red-550: #2563eb !important;
+  --color-red-600: #1d4ed8 !important;
+  --color-red-700: #1e40af !important;
+  --color-red-800: #1e3a8a !important;
+  --color-red-850: rgba(30, 58, 138, 0.3) !important;
+  --color-red-900: #172554 !important;
+  --color-red-950: #0a1128 !important;
+  --color-red-955: #0a1128 !important;
+
+  --color-gold-100: #dbeafe !important;
+  --color-gold-200: #bfdbfe !important;
+  --color-gold-300: #93c5fd !important;
+  --color-gold-400: #60a5fa !important;
+  --color-gold-500: #3b82f6 !important;
+  --color-gold-550: #2563eb !important;
+  --color-gold-600: #1d4ed8 !important;
+}
+
+.theme-golden-hour {
+  --color-red-100: #fef3c7 !important;
+  --color-red-200: #fde68a !important;
+  --color-red-300: #fcd34d !important;
+  --color-red-350: #fbbf24 !important;
+  --color-red-400: #fbbf24 !important;
+  --color-red-500: #f59e0b !important;
+  --color-red-550: #d97706 !important;
+  --color-red-600: #b45309 !important;
+  --color-red-700: #92400e !important;
+  --color-red-800: #78350f !important;
+  --color-red-850: rgba(120, 53, 15, 0.3) !important;
+  --color-red-900: #451a03 !important;
+  --color-red-955: #2d0e00 !important;
+  --color-red-950: #2d0e00 !important;
+
+  --color-gold-100: #fef3c7 !important;
+  --color-gold-200: #fde68a !important;
+  --color-gold-300: #fcd34d !important;
+  --color-gold-400: #fbbf24 !important;
+  --color-gold-500: #f59e0b !important;
+  --color-gold-550: #d97706 !important;
+  --color-gold-600: #b45309 !important;
+}
+
+/* Custom scrollbars for a sleek look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
