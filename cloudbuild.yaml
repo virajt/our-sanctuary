@@ -13,7 +13,7 @@ steps:
       - '--set-env-vars'
       - 'GEMINI_API_KEY=${_GEMINI_KEY}'
       - '--project'
-      - 'sarah-chief-of-staff-on-cli'
+      - 'the-parent-500004'
       - '--quiet'
 options:
   logging: CLOUD_LOGGING_ONLY
