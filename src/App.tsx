@@ -218,12 +218,12 @@ export default function App() {
     }
   };
 
-  const handleUpdatePeriodConfig = async (lastPeriodDate: string, cycleLength: number, periodLength: number) => {
+  const handleUpdatePeriodConfig = async (lastPeriodDate: string, cycleLength: number, periodLength: number, pregnancyMode?: boolean, pregnancyStartDate?: string) => {
     try {
       const response = await fetch("/api/period/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lastPeriodDate, cycleLength, periodLength })
+        body: JSON.stringify({ lastPeriodDate, cycleLength, periodLength, pregnancyMode, pregnancyStartDate })
       });
       if (response.ok) {
         fetchDatabase();
@@ -233,12 +233,24 @@ export default function App() {
     }
   };
 
-  const handleAddPeriodLog = async (date: string, symptoms: string[], moods: string[], intimacyLevel: "None" | "Light Touch" | "Sensual" | "Intense", notes?: string) => {
+  const handleAddPeriodLog = async (
+    date: string, 
+    symptoms: string[], 
+    moods: string[], 
+    intimacyLevel: "None" | "Light Touch" | "Sensual" | "Intense", 
+    notes?: string,
+    flow?: "None" | "Spotting" | "Light" | "Medium" | "Heavy",
+    temperature?: number,
+    weight?: number,
+    waterIntake?: number,
+    sleepDuration?: number,
+    sex?: "None" | "Protected" | "Unprotected"
+  ) => {
     try {
       const response = await fetch("/api/period/log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, symptoms, moods, intimacyLevel, notes })
+        body: JSON.stringify({ date, symptoms, moods, intimacyLevel, notes, flow, temperature, weight, waterIntake, sleepDuration, sex })
       });
       if (response.ok) {
         fetchDatabase();

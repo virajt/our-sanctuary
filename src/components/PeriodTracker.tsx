@@ -1,18 +1,79 @@
 import React, { useState } from "react";
 import { PeriodConfig, CycleLog, CyclePhase, PhaseProtocol } from "../types";
-import { Calendar, Brain, Heart, Sparkles, HelpCircle, Utensils, Smile, Flame, Plus, Lock, Layout, Info, FileText, UploadCloud, AlertCircle, Loader2, Check } from "lucide-react";
+import { 
+  Calendar, Brain, Heart, Sparkles, Utensils, Plus, Lock, 
+  FileText, UploadCloud, AlertCircle, Loader2, Check, 
+  Download, Moon, Droplets, Scale, Thermometer, Info, 
+  ChevronRight, BarChart3, ShieldCheck, Activity, Eye, Zap
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface PeriodTrackerProps {
   config: PeriodConfig;
   logs: CycleLog[];
-  onUpdateConfig: (lastPeriodDate: string, cycleLength: number, periodLength: number) => void;
-  onAddLog: (date: string, symptoms: string[], moods: string[], intimacyLevel: "None" | "Light Touch" | "Sensual" | "Intense", notes?: string) => void;
+  onUpdateConfig: (lastPeriodDate: string, cycleLength: number, periodLength: number, pregnancyMode?: boolean, pregnancyStartDate?: string) => void;
+  onAddLog: (
+    date: string, 
+    symptoms: string[], 
+    moods: string[], 
+    intimacyLevel: "None" | "Light Touch" | "Sensual" | "Intense", 
+    notes?: string,
+    flow?: "None" | "Spotting" | "Light" | "Medium" | "Heavy",
+    temperature?: number,
+    weight?: number,
+    waterIntake?: number,
+    sleepDuration?: number,
+    sex?: "None" | "Protected" | "Unprotected"
+  ) => void;
   onImportSuccess?: () => void;
 }
 
+// ---------------- PREGNANCY WEEKS BABY SIZE DATA ----------------
+const PREGNANCY_WEEKS: Record<number, { size: string; desc: string }> = {
+  1: { size: "Poppy Seed", desc: "The cycle begins. The body is preparing for an incredible journey." },
+  2: { size: "Tiny Seed", desc: "Ovulation takes place. Fertilization might happen this week." },
+  3: { size: "Microscopic Pinhead", desc: "The blastocyst is traveling down the fallopian tube to find its home." },
+  4: { size: "Poppy Seed", desc: "Implantation in the uterine wall. Cells are dividing rapidly." },
+  5: { size: "Apple Seed", desc: "The neural tube is developing, and the tiny heart starts to beat." },
+  6: { size: "Sweet Pea", desc: "Facial features, tiny arm buds, and leg buds start to sprout." },
+  7: { size: "Blueberry", desc: "Brain activity begins, and key internal organs are shaping." },
+  8: { size: "Raspberry", desc: "Hands and feet are developing webbing, and the skeleton is forming." },
+  9: { size: "Green Olive", desc: "Embryonic tail is gone. Tiny muscles begin to twitch." },
+  10: { size: "Prune", desc: "Officially a fetus! All vital organs are formed and active." },
+  11: { size: "Lime", desc: "Fingernails are developing and bones are gradually hardening." },
+  12: { size: "Plum", desc: "Reflexes appear; fingers can flex. The brain is buzzing with development." },
+  13: { size: "Lemon", desc: "Vocal cords form, and kidneys begin filtering fluids." },
+  14: { size: "Nectarine", desc: "Lungs practice breathing motions. Neck is elongating." },
+  15: { size: "Apple", desc: "Skeleton develops further. Eyes shift slightly under closed lids." },
+  16: { size: "Avocado", desc: "The nervous system is fully functional. Baby can make sucking facial expressions." },
+  17: { size: "Pomegranate", desc: "Fat deposits form under the skin to provide vital warmth." },
+  18: { size: "Artichoke", desc: "Hearing is developing. Baby can hear her heartbeat." },
+  19: { size: "Mango", desc: "A protective coating (vernix) covers the baby's delicate skin." },
+  20: { size: "Banana", desc: "Halfway point! She may start to feel light butterfly flutters." },
+  21: { size: "Carrot", desc: "Taste buds are functional; baby swallows amniotic fluid." },
+  22: { size: "Spaghetti Squash", desc: "Eyes and lips are fully formed. Eyelashes are visible." },
+  23: { size: "Grapefruit", desc: "Rapid eye movements begin, and inner ear balance develops." },
+  24: { size: "Cantaloupe", desc: "Lungs form air sacs, preparing for life outside." },
+  25: { size: "Cauliflower", desc: "Spinal structures strengthen. Baby responds to sounds." },
+  26: { size: "Red Cabbage", desc: "Lungs produce surfactant, vital for air breathing." },
+  27: { size: "Acorn Squash", desc: "Baby can open and blink eyes. Brain develops wrinkles." },
+  28: { size: "Eggplant", desc: "Third trimester! Eyelashes are fully grown and blinking begins." },
+  29: { size: "Butternut Squash", desc: "The head grows to accommodate rapid brain expansion." },
+  30: { size: "Cabbage", desc: "Bone marrow takes charge of red blood cell production." },
+  31: { size: "Pineapple", desc: "All sensory channels are active. Nervous system is mature." },
+  32: { size: "Jicama", desc: "Lighter lanugo hair drops. Regular sleep cycles develop." },
+  33: { size: "Celery Bunch", desc: "Baby's immune system gets protective antibodies from mother." },
+  34: { size: "Butternut Squash", desc: "Nervous system and lungs mature further. Baby is plump." },
+  35: { size: "Honeydew Melon", desc: "Hearing is fully functional; baby starts turning head." },
+  36: { size: "Romaine Lettuce", desc: "Lungs are fully prepared. Fat is accumulating in limbs." },
+  37: { size: "Swiss Chard", desc: "Full term! All systems are functional and ready." },
+  38: { size: "Leek", desc: "Lungs produce more surfactant. Vocal cords are thick." },
+  39: { size: "Watermelon", desc: "Placenta continues supplying antibodies. Baby is ready." },
+  40: { size: "Pumpkin", desc: "Due date week! The beautiful sanctuary awaits their arrival." }
+};
+
 // ---------------- PHASE BOUNDARY DEFINITIONS ----------------
-const PROTOCOLS: Record<CyclePhase, PhaseProtocol> = {
+const PROTOCOLS: Record<CyclePhase | "Pregnancy", PhaseProtocol> = {
   Menstrual: {
     phase: "Menstrual",
     days: "Days 1 - 5",
@@ -68,6 +129,20 @@ const PROTOCOLS: Record<CyclePhase, PhaseProtocol> = {
     ],
     recommendedIntimacy: "Sensual and slow touches, comforting neck strokes, slow deep breathing syncs, non-demanding sweet physical adoration.",
     foodsToProvide: ["Complex carbs (roasted sweet potato, butternut squash)", "Warm spiced lentil & vegetable soups", "Bananas & natural roasted almonds", "Warm cinnamon, ginger & clove teas"]
+  },
+  Pregnancy: {
+    phase: "Pregnancy" as any,
+    days: "Weeks 1 - 40+",
+    description: "Growing a new life requires immense biochemical energy and structural alignment. Focus on nourishing nutrients, hydration, stress reduction, and deep physical comforting.",
+    wifeSymptoms: ["Morning sickness", "Fatigue & exhaustion", "Back strain & pelvic pressure", "Intense emotional shifts"],
+    husbandToDos: [
+      "Ensure she is fully hydrated; keep a clean bottle of fresh lemon water within arms reach.",
+      "Offer gentle lower back, shoulder, and foot rubs to relieve carrying strain.",
+      "Handle all high-strain domestic cleaning chores, cooking prep, and household organization.",
+      "Provide complete verbal security and remind her of how beautiful her carrying body is."
+    ],
+    recommendedIntimacy: "Comforting slow cradling snuggles, gentle foot reflexology massage, soft scalp strokes, peaceful silent present connection.",
+    foodsToProvide: ["Folate-rich avocados & spinach", "Protein-dense Greek yogurt & fresh paneer", "Fibre-rich warm oats & chia seed pudding", "Warming organic vegetable broth or spiced lentil soup"]
   }
 };
 
@@ -77,6 +152,8 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
   const [editDate, setEditDate] = useState(config.lastPeriodDate);
   const [editCycle, setEditCycle] = useState(config.cycleLength);
   const [editPeriod, setEditPeriod] = useState(config.periodLength);
+  const [pregnancyMode, setPregnancyMode] = useState(config.pregnancyMode || false);
+  const [pregnancyStartDate, setPregnancyStartDate] = useState(config.pregnancyStartDate || config.lastPeriodDate);
 
   // PDF & Screenshot AI analysis state
   const [showPdfImport, setShowPdfImport] = useState(false);
@@ -85,6 +162,26 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [extractedCount, setExtractedCount] = useState(0);
+
+  // New log form state
+  const [showLogForm, setShowLogForm] = useState(false);
+  const [logDate, setLogDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
+  const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
+  const [intimacy, setIntimacy] = useState<"None" | "Light Touch" | "Sensual" | "Intense">("Sensual");
+  const [notes, setNotes] = useState("");
+  
+  // Flo-style extra logs
+  const [flow, setFlow] = useState<"None" | "Spotting" | "Light" | "Medium" | "Heavy">("None");
+  const [temp, setTemp] = useState("");
+  const [weight, setWeight] = useState("");
+  const [water, setWater] = useState("");
+  const [sleep, setSleep] = useState("");
+  const [sex, setSex] = useState<"None" | "Protected" | "Unprotected">("None");
+
+  // Options lists
+  const SYMPTOMS_OPTIONS = ["Cramps", "Bloating", "Headache", "Tenderness", "Fatigue", "Insomnia", "Anxiety", "High Energy", "High Sex Drive", "Backache", "Nausea", "Acne"];
+  const MOODS_OPTIONS = ["Radiant", "Calm", "Tender", "Playful", "Sassy", "Vulnerable", "Exhausted", "Irritable", "Anxious", "Sad", "Happy", "Emotional"];
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -143,28 +240,124 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
     reader.readAsDataURL(file);
   };
 
-  // New log form state
-  const [showLogForm, setShowLogForm] = useState(false);
-  const [logDate, setLogDate] = useState(new Date().toISOString().split("T")[0]);
-  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
-  const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
-  const [intimacy, setIntimacy] = useState<"None" | "Light Touch" | "Sensual" | "Intense">("Sensual");
-  const [notes, setNotes] = useState("");
+  // ---------------- CYCLE METRICS & STATS CALCULATIONS ----------------
+  const calculateCycleStats = () => {
+    if (logs.length === 0) {
+      return {
+        avgCycle: config.cycleLength,
+        avgPeriod: config.periodLength,
+        variability: "Regular",
+        periodsCount: 0
+      };
+    }
 
-  // Options lists
-  const SYMPTOMS_OPTIONS = ["Cramps", "Bloating", "Headache", "Tenderness", "Fatigue", "Insomnia", "Anxiety", "High Energy", "High Sex Drive"];
-  const MOODS_OPTIONS = ["Radiant", "Calm", "Tender", "Playful", "Sassy", "Vulnerable", "Exhausted", "Irritable", "Anxious"];
+    // Sort ascending
+    const sortedLogs = [...logs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    // Period start days typically identified by Flow starting (Light, Medium, Heavy) 
+    // after at least 14 days of no bleeding.
+    const bleedingDates = sortedLogs
+      .filter(l => l.flow && l.flow !== "None" && l.flow !== "Spotting")
+      .map(l => l.date);
+    
+    const periods: string[][] = [];
+    let currentPeriod: string[] = [];
 
-  // ---------------- CYCLE METRICS CALCULATIONS ----------------
+    bleedingDates.forEach((dateStr) => {
+      if (currentPeriod.length === 0) {
+        currentPeriod.push(dateStr);
+      } else {
+        const lastDate = new Date(currentPeriod[currentPeriod.length - 1]);
+        const currentDate = new Date(dateStr);
+        const diffDays = (currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (diffDays <= 4) { // consecutive or near-consecutive bleeding days
+          currentPeriod.push(dateStr);
+        } else {
+          periods.push(currentPeriod);
+          currentPeriod = [dateStr];
+        }
+      }
+    });
+    if (currentPeriod.length > 0) {
+      periods.push(currentPeriod);
+    }
+
+    const cycleLengths: number[] = [];
+    for (let i = 0; i < periods.length - 1; i++) {
+      const start1 = new Date(periods[i][0]);
+      const start2 = new Date(periods[i+1][0]);
+      const diffDays = (start2.getTime() - start1.getTime()) / (1000 * 60 * 60 * 24);
+      if (diffDays >= 15 && diffDays <= 45) {
+        cycleLengths.push(diffDays);
+      }
+    }
+
+    const periodLengths = periods.map(p => {
+      if (p.length === 1) return 1;
+      const start = new Date(p[0]);
+      const end = new Date(p[p.length - 1]);
+      return Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    });
+
+    const avgCycle = cycleLengths.length > 0 
+      ? Math.round(cycleLengths.reduce((a, b) => a + b, 0) / cycleLengths.length)
+      : config.cycleLength;
+      
+    const avgPeriod = periodLengths.length > 0
+      ? Math.round(periodLengths.reduce((a, b) => a + b, 0) / periodLengths.length)
+      : config.periodLength;
+
+    let variability = "Regular";
+    if (cycleLengths.length >= 3) {
+      const mean = cycleLengths.reduce((a, b) => a + b, 0) / cycleLengths.length;
+      const variance = cycleLengths.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / cycleLengths.length;
+      const stdDev = Math.sqrt(variance);
+      if (stdDev > 4) {
+        variability = "Irregular";
+      }
+    }
+
+    return {
+      avgCycle,
+      avgPeriod,
+      variability,
+      periodsCount: periods.length
+    };
+  };
+
+  const { avgCycle, avgPeriod, variability, periodsCount } = calculateCycleStats();
+
   const calculateCycleInfo = () => {
+    // ---------------- PREGNANCY CALCULATIONS ----------------
+    if (config.pregnancyMode) {
+      const startDateStr = config.pregnancyStartDate || config.lastPeriodDate;
+      const start = new Date(startDateStr);
+      const today = new Date();
+      const diffTime = today.getTime() - start.getTime();
+      let diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+
+      const weeks = Math.min(42, Math.floor(diffDays / 7));
+      const days = Math.floor(diffDays % 7);
+      const estDueDate = new Date(start.getTime() + 280 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+      return {
+        currentDayOfCycle: 0,
+        activePhase: "Pregnancy" as CyclePhase,
+        daysUntilNextPeriod: 0,
+        percentage: (weeks / 40) * 100,
+        pregnancyWeeks: weeks,
+        pregnancyDays: days,
+        dueDate: estDueDate
+      };
+    }
+
+    // ---------------- STANDARD CYCLE CALCULATIONS ----------------
     const lastDate = new Date(config.lastPeriodDate);
     const today = new Date();
-    
-    // Day in current cycle
     const diffTime = today.getTime() - lastDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
-    // wrap around in case user is over 28 days
+    // wrap around in case user is over cycle bounds
     const currentDayOfCycle = (diffDays % config.cycleLength) + 1;
     
     // Determine active phase
@@ -181,30 +374,74 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
 
     const daysUntilNextPeriod = config.cycleLength - currentDayOfCycle + 1;
     
+    // Fertile Window Calculations
+    const ovulationDayOfCycle = config.cycleLength - 14;
+    const fertileWindowStart = ovulationDayOfCycle - 5;
+    const fertileWindowEnd = ovulationDayOfCycle;
+    
+    let fertilityChance = "Low";
+    if (currentDayOfCycle === ovulationDayOfCycle) {
+      fertilityChance = "Peak (Ovulation Day)";
+    } else if (currentDayOfCycle >= fertileWindowStart && currentDayOfCycle <= fertileWindowEnd) {
+      fertilityChance = "High (Fertile Window)";
+    }
+
     return {
       currentDayOfCycle,
       activePhase,
       daysUntilNextPeriod,
-      percentage: (currentDayOfCycle / config.cycleLength) * 100
+      percentage: (currentDayOfCycle / config.cycleLength) * 100,
+      pregnancyWeeks: 0,
+      pregnancyDays: 0,
+      dueDate: "",
+      fertilityChance
     };
   };
 
-  const { currentDayOfCycle, activePhase, daysUntilNextPeriod, percentage } = calculateCycleInfo();
+  const { 
+    currentDayOfCycle, 
+    activePhase, 
+    daysUntilNextPeriod, 
+    percentage, 
+    pregnancyWeeks, 
+    pregnancyDays, 
+    dueDate,
+    fertilityChance 
+  } = calculateCycleInfo();
+
   const currentProtocol = PROTOCOLS[activePhase];
 
   const handleConfigSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateConfig(editDate, editCycle, editPeriod);
+    onUpdateConfig(editDate, editCycle, editPeriod, pregnancyMode, pregnancyStartDate);
     setShowConfig(false);
   };
 
   const handleLogSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAddLog(logDate, selectedSymptoms, selectedMoods, intimacy, notes);
+    onAddLog(
+      logDate, 
+      selectedSymptoms, 
+      selectedMoods, 
+      intimacy, 
+      notes,
+      flow,
+      temp ? parseFloat(temp) : undefined,
+      weight ? parseFloat(weight) : undefined,
+      water ? parseInt(water) : undefined,
+      sleep ? parseFloat(sleep) : undefined,
+      sex
+    );
     // Reset Form
     setSelectedSymptoms([]);
     setSelectedMoods([]);
     setNotes("");
+    setFlow("None");
+    setTemp("");
+    setWeight("");
+    setWater("");
+    setSleep("");
+    setSex("None");
     setShowLogForm(false);
   };
 
@@ -235,6 +472,28 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
 
         {/* Action Triggers */}
         <div className="flex items-center gap-3 flex-wrap">
+          
+          {/* Direct Data Exports */}
+          <div className="flex items-center bg-luxury-950/80 rounded-2xl border border-white/15 p-1">
+            <button
+              onClick={() => window.location.href = "/api/period/export?format=json"}
+              className="px-3 py-1.5 hover:bg-white/5 rounded-xl text-neutral-300 hover:text-white text-[10px] font-mono tracking-wider transition flex items-center gap-1 cursor-pointer"
+              title="Download separate cycle DB in JSON"
+            >
+              <Download className="w-3 h-3" />
+              JSON
+            </button>
+            <div className="w-[1px] h-3 bg-white/10 mx-1" />
+            <button
+              onClick={() => window.location.href = "/api/period/export?format=csv"}
+              className="px-3 py-1.5 hover:bg-white/5 rounded-xl text-neutral-300 hover:text-white text-[10px] font-mono tracking-wider transition flex items-center gap-1 cursor-pointer"
+              title="Export all logs as CSV spreadsheet"
+            >
+              <FileText className="w-3 h-3" />
+              CSV
+            </button>
+          </div>
+
           <button
             onClick={() => {
               setShowPdfImport(!showPdfImport);
@@ -247,8 +506,8 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
                 : "border-white/10 hover:bg-white/[0.05] text-neutral-300"
             }`}
           >
-            <FileText className="w-3.5 h-3.5" />
-            Import PDF / Image
+            <UploadCloud className="w-3.5 h-3.5" />
+            Import PDF
           </button>
 
           <button
@@ -263,7 +522,7 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
                 : "border-white/10 hover:bg-white/[0.05] text-neutral-300"
             }`}
           >
-            Configure Bounds
+            Configure Params
           </button>
           
           <button
@@ -383,45 +642,81 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
             className="overflow-hidden bg-luxury-900/80 border border-luxury-800 rounded-3xl p-6 shadow-xl"
           >
             <form onSubmit={handleConfigSubmit} className="space-y-6">
-              <h3 className="font-serif text-lg font-medium text-white/90">Set Menstrual Parameters</h3>
+              <div className="flex items-center justify-between border-b border-luxury-800 pb-3">
+                <h3 className="font-serif text-lg font-medium text-white/90">Set Cycle Configuration</h3>
+                
+                {/* Pregnancy Mode toggle switch */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-neutral-400">Pregnancy Mode</span>
+                  <button
+                    type="button"
+                    onClick={() => setPregnancyMode(!pregnancyMode)}
+                    className={`p-1 rounded-full w-12 transition-colors cursor-pointer border ${
+                      pregnancyMode 
+                        ? "bg-emerald-950/40 border-emerald-500/50 text-emerald-400" 
+                        : "bg-luxury-950 border-luxury-850 text-neutral-600"
+                    }`}
+                  >
+                    <div className={`w-4 h-4 rounded-full bg-current transition-transform ${pregnancyMode ? "translate-x-6" : "translate-x-0"}`} />
+                  </button>
+                </div>
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs text-neutral-400 font-medium">Last Period Starting Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
-                    className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-red-800 transition-colors"
-                  />
-                </div>
+                {pregnancyMode ? (
+                  <>
+                    <div className="space-y-2 md:col-span-3">
+                      <label className="text-xs text-neutral-400 font-medium">Pregnancy Start Date (First day of last period - LMP)</label>
+                      <input
+                        type="date"
+                        required
+                        value={pregnancyStartDate}
+                        onChange={(e) => setPregnancyStartDate(e.target.value)}
+                        className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-800 transition-colors"
+                      />
+                      <p className="text-[10px] text-neutral-500">Medical standard calculates gestation starting from the first day of your last period.</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-xs text-neutral-400 font-medium">Last Period Starting Date</label>
+                      <input
+                        type="date"
+                        required
+                        value={editDate}
+                        onChange={(e) => setEditDate(e.target.value)}
+                        className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-red-800 transition-colors"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs text-neutral-400 font-medium">Cycle Length (Average Days)</label>
-                  <input
-                    type="number"
-                    min="20"
-                    max="45"
-                    required
-                    value={editCycle}
-                    onChange={(e) => setEditCycle(parseInt(e.target.value))}
-                    className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-red-800 transition-colors"
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <label className="text-xs text-neutral-400 font-medium">Cycle Length (Average Days)</label>
+                      <input
+                        type="number"
+                        min="20"
+                        max="45"
+                        required
+                        value={editCycle}
+                        onChange={(e) => setEditCycle(parseInt(e.target.value))}
+                        className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-red-800 transition-colors"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs text-neutral-400 font-medium">Bleeding Phase Length (Days)</label>
-                  <input
-                    type="number"
-                    min="3"
-                    max="10"
-                    required
-                    value={editPeriod}
-                    onChange={(e) => setEditPeriod(parseInt(e.target.value))}
-                    className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-red-800 transition-colors"
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <label className="text-xs text-neutral-400 font-medium">Bleeding Phase Length (Days)</label>
+                      <input
+                        type="number"
+                        min="3"
+                        max="10"
+                        required
+                        value={editPeriod}
+                        onChange={(e) => setEditPeriod(parseInt(e.target.value))}
+                        className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-red-800 transition-colors"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
@@ -434,9 +729,13 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-red-900/60 hover:bg-red-800 border border-red-700/50 text-white text-xs font-bold rounded-2xl shadow-lg transition glow-red"
+                  className={`px-5 py-2 border text-white text-xs font-bold rounded-2xl shadow-lg transition ${
+                    pregnancyMode 
+                      ? "bg-emerald-900/60 hover:bg-emerald-800 border-emerald-700/50 glow-emerald" 
+                      : "bg-red-900/60 hover:bg-red-800 border-red-700/50 glow-red"
+                  }`}
                 >
-                  Recalculate Cycle
+                  Recalculate Bounds
                 </button>
               </div>
             </form>
@@ -454,42 +753,82 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
             className="overflow-hidden bg-luxury-900/80 border border-luxury-800 rounded-3xl p-6 shadow-xl"
           >
             <form onSubmit={handleLogSubmit} className="space-y-6">
-              <div className="border-b border-luxury-800 pb-3">
-                <h3 className="font-serif text-lg font-medium text-red-400 animate-pulse">Record Domestic Symptoms & Vibes</h3>
-                <p className="text-xs text-neutral-500">Log today's symptoms, moods, and desires to align your connection.</p>
+              <div className="border-b border-luxury-800 pb-3 flex justify-between items-center">
+                <div>
+                  <h3 className="font-serif text-lg font-medium text-red-400">Record Daily Symptoms & Vitals</h3>
+                  <p className="text-xs text-neutral-500">Log symptoms, moods, activity, and health metrics to sync with Flo.</p>
+                </div>
+                <input
+                  type="date"
+                  required
+                  value={logDate}
+                  onChange={(e) => setLogDate(e.target.value)}
+                  className="bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-800 transition"
+                />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Date and intimacy level */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* 1. Flow Intensity */}
                 <div className="space-y-2">
-                  <label className="text-xs text-neutral-400 font-medium block">Select Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={logDate}
-                    onChange={(e) => setLogDate(e.target.value)}
-                    className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-red-800 transition-colors"
-                  />
+                  <label className="text-xs text-neutral-400 font-medium block">Period Flow</label>
+                  <div className="grid grid-cols-5 gap-1 bg-luxury-950 p-1 rounded-xl border border-luxury-850">
+                    {(["None", "Spotting", "Light", "Medium", "Heavy"] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setFlow(opt)}
+                        className={`py-2 rounded-lg text-[9px] font-bold font-mono transition cursor-pointer ${
+                          flow === opt 
+                            ? "bg-red-500/15 text-red-400 border border-red-500/30" 
+                            : "text-neutral-500 hover:text-neutral-300"
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
+                {/* 2. Intimacy Alignment */}
                 <div className="space-y-2">
-                  <label className="text-xs text-neutral-400 font-medium block">Intimacy Desire / Level</label>
+                  <label className="text-xs text-neutral-400 font-medium block">Intimacy Level Desire</label>
                   <select
                     value={intimacy}
                     onChange={(e) => setIntimacy(e.target.value as any)}
-                    className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-4 py-3 text-sm text-neutral-300 focus:outline-none focus:border-red-800 transition"
+                    className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-2 text-xs text-neutral-300 focus:outline-none focus:border-red-800 transition"
                   >
-                    <option value="None">Restorative Rest (No touch expected)</option>
-                    <option value="Light Touch">Gentle Warm Touch (Cuddles, back rubs)</option>
-                    <option value="Sensual">Sensual slow (Swirling caresses)</option>
-                    <option value="Intense">Intense Passion (Deep touch desires)</option>
+                    <option value="None">Restorative Rest (No touch)</option>
+                    <option value="Light Touch">Gentle Warm Touch (Cuddles)</option>
+                    <option value="Sensual">Sensual slow (Caresses)</option>
+                    <option value="Intense">Intense Passion (Deep touch)</option>
                   </select>
+                </div>
+
+                {/* 3. Sex Activity */}
+                <div className="space-y-2">
+                  <label className="text-xs text-neutral-400 font-medium block">Sexual Activity</label>
+                  <div className="grid grid-cols-3 gap-1 bg-luxury-950 p-1 rounded-xl border border-luxury-850">
+                    {(["None", "Protected", "Unprotected"] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setSex(opt)}
+                        className={`py-2 rounded-lg text-[9px] font-bold transition cursor-pointer ${
+                          sex === opt 
+                            ? "bg-red-500/15 text-red-400 border border-red-500/30" 
+                            : "text-neutral-500 hover:text-neutral-300"
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Symptoms chips */}
+              {/* Physical Symptoms */}
               <div className="space-y-2">
-                <label className="text-xs text-neutral-400 font-medium block">How is she physically feeling? (Select multiple)</label>
+                <label className="text-xs text-neutral-400 font-medium block">Physical Symptoms (Select multiple)</label>
                 <div className="flex flex-wrap gap-2">
                   {SYMPTOMS_OPTIONS.map((sym) => {
                     const isSelected = selectedSymptoms.includes(sym);
@@ -511,9 +850,9 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
                 </div>
               </div>
 
-              {/* Moods selection */}
+              {/* Moods */}
               <div className="space-y-2">
-                <label className="text-xs text-neutral-400 font-medium block">Active Mood Vibe (Select multiple)</label>
+                <label className="text-xs text-neutral-400 font-medium block">Mood Vibe (Select multiple)</label>
                 <div className="flex flex-wrap gap-2">
                   {MOODS_OPTIONS.map((mood) => {
                     const isSelected = selectedMoods.includes(mood);
@@ -535,11 +874,61 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
                 </div>
               </div>
 
+              {/* Vesta Health Vitals */}
+              <div className="space-y-2">
+                <label className="text-xs text-neutral-400 font-medium block">Vesta Health Vitals</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="relative">
+                    <Thermometer className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="Temp (°C)"
+                      value={temp}
+                      onChange={(e) => setTemp(e.target.value)}
+                      className="w-full bg-luxury-950 border border-luxury-800 rounded-xl py-2 px-3 pl-8 text-xs text-white focus:outline-none focus:border-red-800"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Scale className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="Weight (kg)"
+                      value={weight}
+                      onChange={(e) => setWeight(e.target.value)}
+                      className="w-full bg-luxury-950 border border-luxury-800 rounded-xl py-2 px-3 pl-8 text-xs text-white focus:outline-none focus:border-red-800"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Droplets className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="number"
+                      placeholder="Water (ml)"
+                      value={water}
+                      onChange={(e) => setWater(e.target.value)}
+                      className="w-full bg-luxury-950 border border-luxury-800 rounded-xl py-2 px-3 pl-8 text-xs text-white focus:outline-none focus:border-red-800"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Moon className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="number"
+                      step="0.5"
+                      placeholder="Sleep (hrs)"
+                      value={sleep}
+                      onChange={(e) => setSleep(e.target.value)}
+                      className="w-full bg-luxury-950 border border-luxury-800 rounded-xl py-2 px-3 pl-8 text-xs text-white focus:outline-none focus:border-red-800"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Notes */}
               <div className="space-y-2">
-                <label className="text-xs text-neutral-400 font-medium block">Additional Notes / Custom boundary requests</label>
+                <label className="text-xs text-neutral-400 font-medium block">Intimate Notes & Requests</label>
                 <textarea
-                  placeholder="e.g. Incredibly busy workday, craving lower back oil strokes and total quiet at 9 PM."
+                  placeholder="Notes about physical comfort, specific cravings, or connection alignment."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}
@@ -573,69 +962,159 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
         {/* Left column: Tracker Progress Circle Dial (Col span 5) */}
         <div className="lg:col-span-5 bg-gradient-to-b from-luxury-900/85 to-luxury-950/60 border border-luxury-800 rounded-3xl p-8 flex flex-col items-center justify-between space-y-6 relative overflow-hidden text-center">
           
-          <div className="space-y-1">
-            <span className="text-[10px] tracking-widest font-mono uppercase text-[#e11d48]">Current Phase Position</span>
-            <h3 className="font-serif text-3xl font-medium tracking-wide text-white">{activePhase} Phase</h3>
-            <p className="text-xs text-neutral-400 italic">Day {currentDayOfCycle} inside {config.cycleLength}-Day cycle.</p>
-          </div>
+          {config.pregnancyMode ? (
+            <>
+              {/* Pregnancy Mode Header */}
+              <div className="space-y-1">
+                <span className="text-[10px] tracking-widest font-mono uppercase text-emerald-400 flex items-center justify-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 animate-pulse" />
+                  Pregnancy Mode Active
+                </span>
+                <h3 className="font-serif text-3xl font-medium tracking-wide text-white">Gestation Stage</h3>
+                <p className="text-xs text-neutral-400 italic">Week {pregnancyWeeks}, Day {pregnancyDays}</p>
+              </div>
 
-          {/* Majestic graphic cycle circle ring */}
-          <div className="relative w-44 h-44 flex items-center justify-center">
-            {/* Background SVG path container */}
-            <svg className="absolute inset-0 w-full h-full transform -rotate-90">
-              <circle
-                cx={88}
-                cy={88}
-                r={72}
-                className="stroke-luxury-950/80 fill-none"
-                strokeWidth={14}
-              />
-              <circle
-                cx={88}
-                cy={88}
-                r={72}
-                className="stroke-red-700 fill-none transition-all duration-1000"
-                strokeWidth={10}
-                strokeDasharray={2 * Math.PI * 72}
-                strokeDashoffset={2 * Math.PI * 72 * (1 - currentDayOfCycle / config.cycleLength)}
-                strokeLinecap="round"
-              />
-            </svg>
+              {/* Pregnancy Circle progress ring */}
+              <div className="relative w-44 h-44 flex items-center justify-center">
+                <svg className="absolute inset-0 w-full h-full transform -rotate-90">
+                  <circle
+                    cx={88}
+                    cy={88}
+                    r={72}
+                    className="stroke-luxury-950/80 fill-none"
+                    strokeWidth={14}
+                  />
+                  <circle
+                    cx={88}
+                    cy={88}
+                    r={72}
+                    className="stroke-emerald-600 fill-none transition-all duration-1000"
+                    strokeWidth={10}
+                    strokeDasharray={2 * Math.PI * 72}
+                    strokeDashoffset={2 * Math.PI * 72 * (1 - Math.min(40, pregnancyWeeks) / 40)}
+                    strokeLinecap="round"
+                  />
+                </svg>
 
-            {/* Inner text metric */}
-            <div className="text-center space-y-0.5">
-              <span className="font-mono text-3xl tracking-tight text-white font-extrabold">{daysUntilNextPeriod}</span>
-              <span className="text-[10px] font-mono tracking-widest text-neutral-400 uppercase block">Days Until</span>
-              <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest block glow-red">Next Period</span>
-            </div>
-          </div>
+                <div className="text-center space-y-0.5">
+                  <span className="font-mono text-3xl tracking-tight text-white font-extrabold">{40 - pregnancyWeeks}</span>
+                  <span className="text-[10px] font-mono tracking-widest text-neutral-400 uppercase block">Weeks Left</span>
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block glow-emerald">to Sanctuary</span>
+                </div>
+              </div>
 
-          {/* Quick cycle info bounds stats helper */}
-          <div className="w-full bg-luxury-950/60 rounded-2xl border border-luxury-850 p-4 text-xs flex justify-around text-neutral-400">
-            <div>
-              <span className="text-[9px] font-mono block uppercase">Last Started</span>
-              <span className="text-neutral-200 font-bold">{new Date(config.lastPeriodDate).toLocaleDateString(undefined, {month: "short", day: "numeric"})}</span>
-            </div>
-            <div className="border-l border-luxury-800" />
-            <div>
-              <span className="text-[9px] font-mono block uppercase">Cycle length</span>
-              <span className="text-neutral-200 font-bold">{config.cycleLength} Days</span>
-            </div>
-          </div>
+              {/* Baby Size comparison badge */}
+              <div className="w-full bg-luxury-950/60 rounded-2xl border border-luxury-850 p-4 space-y-2 text-center">
+                <span className="text-[9px] font-mono block uppercase text-neutral-500 tracking-wider">Baby Size Standard</span>
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/35 flex items-center justify-center text-emerald-400 text-xs font-serif font-bold">
+                    {PREGNANCY_WEEKS[pregnancyWeeks]?.size ? PREGNANCY_WEEKS[pregnancyWeeks].size.charAt(0) : "S"}
+                  </div>
+                  <span className="text-neutral-200 font-serif font-bold text-base">
+                    Size of a {PREGNANCY_WEEKS[pregnancyWeeks]?.size || "Poppy Seed"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-neutral-400 font-light leading-relaxed">
+                  "{PREGNANCY_WEEKS[pregnancyWeeks]?.desc || "Preparing for growth."}"
+                </p>
+              </div>
+
+              {/* Due Date Display */}
+              <div className="text-xs text-neutral-400">
+                <span className="font-mono text-[9px] uppercase block">Estimated Due Date (EDD)</span>
+                <span className="text-neutral-200 font-bold font-mono">
+                  {new Date(dueDate).toLocaleDateString(undefined, {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Standard Cycle Mode Header */}
+              <div className="space-y-1">
+                <span className="text-[10px] tracking-widest font-mono uppercase text-[#e11d48]">Current Phase Position</span>
+                <h3 className="font-serif text-3xl font-medium tracking-wide text-white">{activePhase} Phase</h3>
+                <p className="text-xs text-neutral-400 italic">Day {currentDayOfCycle} inside {config.cycleLength}-Day cycle.</p>
+              </div>
+
+              {/* Standard SVG progress ring */}
+              <div className="relative w-44 h-44 flex items-center justify-center">
+                <svg className="absolute inset-0 w-full h-full transform -rotate-90">
+                  <circle
+                    cx={88}
+                    cy={88}
+                    r={72}
+                    className="stroke-luxury-950/80 fill-none"
+                    strokeWidth={14}
+                  />
+                  <circle
+                    cx={88}
+                    cy={88}
+                    r={72}
+                    className="stroke-red-700 fill-none transition-all duration-1000"
+                    strokeWidth={10}
+                    strokeDasharray={2 * Math.PI * 72}
+                    strokeDashoffset={2 * Math.PI * 72 * (1 - percentage / 100)}
+                    strokeLinecap="round"
+                  />
+                </svg>
+
+                <div className="text-center space-y-0.5">
+                  <span className="font-mono text-3xl tracking-tight text-white font-extrabold">{daysUntilNextPeriod}</span>
+                  <span className="text-[10px] font-mono tracking-widest text-neutral-400 uppercase block">Days Until</span>
+                  <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest block glow-red">Next Period</span>
+                </div>
+              </div>
+
+              {/* Fertility Chance Indicator */}
+              <div className="w-full bg-luxury-950/60 rounded-2xl border border-luxury-850 p-3.5 text-center space-y-1">
+                <span className="text-[9px] font-mono block uppercase text-neutral-500 tracking-wider">Flo Pregnancy Chance</span>
+                {fertilityChance ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-950/40 border border-red-500/25 text-red-400 text-xs font-bold glow-red">
+                    <Activity className="w-3.5 h-3.5 animate-pulse" />
+                    {fertilityChance}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-400 text-xs font-semibold">
+                    Low Chance of Pregnancy
+                  </span>
+                )}
+              </div>
+
+              {/* Quick cycle info bounds stats helper */}
+              <div className="w-full bg-luxury-950/60 rounded-2xl border border-luxury-850 p-4 text-xs flex justify-around text-neutral-400">
+                <div>
+                  <span className="text-[9px] font-mono block uppercase">Last Started</span>
+                  <span className="text-neutral-200 font-bold">{new Date(config.lastPeriodDate).toLocaleDateString(undefined, {month: "short", day: "numeric"})}</span>
+                </div>
+                <div className="border-l border-luxury-800" />
+                <div>
+                  <span className="text-[9px] font-mono block uppercase">Cycle length</span>
+                  <span className="text-neutral-200 font-bold">{config.cycleLength} Days</span>
+                </div>
+              </div>
+            </>
+          )}
+
         </div>
 
         {/* Right column: Husband's protocol guides & instructions (Col span 7) */}
-        <div className="lg:col-span-7 bg-luxury-950/40 border border-luxury-800 rounded-3xl p-8 flex flex-col justify-between">
+        <div className="lg:col-span-7 bg-luxury-950/40 border border-luxury-800 rounded-3xl p-8 flex flex-col justify-between space-y-6">
           
           <div className="space-y-6">
             
             {/* Section Tag */}
             <div className="flex items-center justify-between border-b border-luxury-800 pb-3">
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded bg-red-550/10 border border-red-900/30 text-red-400 text-[10px] font-bold tracking-widest uppercase">
+                <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase border ${
+                  config.pregnancyMode 
+                    ? "bg-emerald-555/10 border-emerald-900/30 text-emerald-400" 
+                    : "bg-red-550/10 border-red-900/30 text-red-400"
+                }`}>
                   Husband Alignment Guide
                 </span>
-                <span className="text-[11px] font-serif text-red-400 italic lowercase">Active stage protocol</span>
+                <span className={`text-[11px] font-serif italic lowercase ${config.pregnancyMode ? "text-emerald-400" : "text-red-400"}`}>
+                  Active stage protocol
+                </span>
               </div>
               <span className="text-xs text-neutral-500 font-mono tracking-wider">{currentProtocol.days}</span>
             </div>
@@ -675,7 +1154,7 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {currentProtocol.foodsToProvide.map((food, id) => (
-                      <span key={id} className="px-2 py-1 rounded-lg bg-luxury-950 font-mono text-[9px] text-red-300 border border-luxury-80 border-transparent">
+                      <span key={id} className="px-2 py-1 rounded-lg bg-luxury-950 font-mono text-[9px] text-red-300 border border-transparent">
                         {food}
                       </span>
                     ))}
@@ -688,7 +1167,7 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
                     <Heart className="w-3.5 h-3.5" />
                     Intimacy Alignment
                   </span>
-                  <p className="text-[11px] text-neutral-300 font-light leading-relaxed leading-snug">
+                  <p className="text-[11px] text-neutral-300 font-light leading-relaxed">
                     {currentProtocol.recommendedIntimacy}
                   </p>
                 </div>
@@ -700,6 +1179,33 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
 
         </div>
 
+      </div>
+
+      {/* Cycle Statistics Dashboard (Flo Analytics) */}
+      <div className="bg-luxury-900/40 border border-luxury-800 rounded-3xl p-6 grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="space-y-1 p-2">
+          <span className="text-[9px] font-mono uppercase text-neutral-500 tracking-wider block">Average Cycle Length</span>
+          <span className="text-2xl font-serif text-white font-bold">{avgCycle} Days</span>
+          <p className="text-[10px] text-neutral-450">Calculated over logged cycles.</p>
+        </div>
+        <div className="space-y-1 p-2 border-l border-luxury-850">
+          <span className="text-[9px] font-mono uppercase text-neutral-500 tracking-wider block">Average Period Duration</span>
+          <span className="text-2xl font-serif text-white font-bold">{avgPeriod} Days</span>
+          <p className="text-[10px] text-neutral-450">Calculated from bleeding intervals.</p>
+        </div>
+        <div className="space-y-1 p-2 border-l border-luxury-850">
+          <span className="text-[9px] font-mono uppercase text-neutral-500 tracking-wider block">Cycle Regularity</span>
+          <span className="inline-flex items-center gap-1 text-xs font-bold mt-1 text-emerald-400 bg-emerald-950/20 px-2.5 py-0.5 rounded-full border border-emerald-900/30">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            {variability}
+          </span>
+          <p className="text-[10px] text-neutral-450 mt-1">Variability within safe thresholds.</p>
+        </div>
+        <div className="space-y-1 p-2 border-l border-luxury-850">
+          <span className="text-[9px] font-mono uppercase text-neutral-500 tracking-wider block">Total Logged Entries</span>
+          <span className="text-2xl font-serif text-white font-bold">{logs.length} Entries</span>
+          <p className="text-[10px] text-neutral-450">Complete historical database depth.</p>
+        </div>
       </div>
 
       {/* Cycle Logs timeline list */}
@@ -718,10 +1224,17 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
               >
                 {/* log date and intimacy style title */}
                 <div className="flex items-center justify-between border-b border-luxury-850 pb-2">
-                  <span className="text-xs text-neutral-400 font-mono">{new Date(log.date).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span>
-                  <span className="px-2 py-0.5 rounded bg-luxury-900 border border-luxury-800 text-[9px] font-mono text-red-400 uppercase tracking-widest">
-                    Touch: {log.intimacyLevel}
-                  </span>
+                  <span className="text-xs text-neutral-400 font-mono font-semibold">{new Date(log.date).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span>
+                  <div className="flex items-center gap-1.5">
+                    {log.flow && log.flow !== "None" && (
+                      <span className="px-1.5 py-0.5 rounded bg-red-950/30 border border-red-500/30 text-[9px] font-mono text-red-400 font-bold uppercase">
+                        Flow: {log.flow}
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded bg-luxury-900 border border-luxury-800 text-[9px] font-mono text-red-400 uppercase tracking-widest">
+                      Touch: {log.intimacyLevel}
+                    </span>
+                  </div>
                 </div>
 
                 {/* symptoms bubble wrap */}
@@ -745,6 +1258,42 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
                         <span key={m} className="px-1.5 py-0.5 bg-red-500/10 border border-red-805/20 text-red-300 text-[9px] rounded-md font-light">{m}</span>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* extra vitals log */}
+                {(log.temperature !== undefined || log.weight !== undefined || log.waterIntake !== undefined || log.sleepDuration !== undefined || (log.sex && log.sex !== "None")) && (
+                  <div className="grid grid-cols-2 gap-2 bg-luxury-950 p-2.5 rounded-xl border border-luxury-850 text-[10px] text-neutral-450 font-mono">
+                    {log.temperature !== undefined && (
+                      <div className="flex items-center gap-1">
+                        <Thermometer className="w-3 h-3 text-red-400" />
+                        <span>Temp: {log.temperature}°C</span>
+                      </div>
+                    )}
+                    {log.weight !== undefined && (
+                      <div className="flex items-center gap-1">
+                        <Scale className="w-3 h-3 text-red-400" />
+                        <span>Weight: {log.weight}kg</span>
+                      </div>
+                    )}
+                    {log.waterIntake !== undefined && (
+                      <div className="flex items-center gap-1">
+                        <Droplets className="w-3 h-3 text-red-400" />
+                        <span>Water: {log.waterIntake}ml</span>
+                      </div>
+                    )}
+                    {log.sleepDuration !== undefined && (
+                      <div className="flex items-center gap-1">
+                        <Moon className="w-3 h-3 text-red-400" />
+                        <span>Sleep: {log.sleepDuration}h</span>
+                      </div>
+                    )}
+                    {log.sex && log.sex !== "None" && (
+                      <div className="col-span-2 flex items-center gap-1 border-t border-white/5 pt-1 mt-1 text-red-300 font-bold">
+                        <Heart className="w-3 h-3 text-red-500" />
+                        <span>Sex: {log.sex} Activity</span>
+                      </div>
+                    )}
                   </div>
                 )}
 

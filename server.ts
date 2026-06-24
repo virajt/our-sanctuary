@@ -12,7 +12,8 @@ import {
   PeriodConfig, 
   AdminSettings,
   ImportantDate,
-  GiftPurchase
+  GiftPurchase,
+  CycleTrackerDB
 } from "./src/types";
 import { 
   generateProceduralWicked, 
@@ -49,10 +50,98 @@ if (apiKey && apiKey !== "MY_GEMINI_API_KEY") {
 // Ensure database directory exists
 const DB_DIR = path.join(process.cwd(), "data");
 const DB_FILE = path.join(DB_DIR, "sanctuary_db.json");
+const CYCLE_DB_FILE = path.join(DB_DIR, "cycle_tracker_db.json");
 
 if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR, { recursive: true });
 }
+
+// Default Cycle Tracker Database seeding config
+const DEFAULT_CYCLE_DB: CycleTrackerDB = {
+  periodConfig: {
+    lastPeriodDate: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    cycleLength: 28,
+    periodLength: 5,
+    pregnancyMode: false,
+    pregnancyStartDate: ""
+  },
+  cycleLogs: []
+};
+
+// Database Migration Helper
+function migrateCycleData() {
+  const mainDbExists = fs.existsSync(DB_FILE);
+  const cycleDbExists = fs.existsSync(CYCLE_DB_FILE);
+
+  if (!cycleDbExists) {
+    let migratedConfig = DEFAULT_CYCLE_DB.periodConfig;
+    let migratedLogs = DEFAULT_CYCLE_DB.cycleLogs;
+
+    if (mainDbExists) {
+      try {
+        const content = fs.readFileSync(DB_FILE, "utf-8");
+        const mainData = JSON.parse(content);
+        let updated = false;
+
+        if (mainData.periodConfig) {
+          migratedConfig = {
+            ...DEFAULT_CYCLE_DB.periodConfig,
+            ...mainData.periodConfig
+          };
+          delete mainData.periodConfig;
+          updated = true;
+        }
+        if (mainData.cycleLogs) {
+          migratedLogs = mainData.cycleLogs;
+          delete mainData.cycleLogs;
+          updated = true;
+        }
+
+        if (updated) {
+          fs.writeFileSync(DB_FILE, JSON.stringify(mainData, null, 2), "utf-8");
+          console.log("Successfully migrated cycle data out of sanctuary_db.json");
+        }
+      } catch (err: any) {
+        console.error("Failed to parse or clean main db during migration:", err);
+      }
+    }
+
+    const cycleDbData: CycleTrackerDB = {
+      periodConfig: migratedConfig,
+      cycleLogs: migratedLogs
+    };
+    try {
+      fs.writeFileSync(CYCLE_DB_FILE, JSON.stringify(cycleDbData, null, 2), "utf-8");
+      console.log("Successfully created cycle_tracker_db.json with migrated data");
+    } catch (err: any) {
+      console.error("Failed to write migrated cycle tracker db:", err);
+    }
+  } else {
+    if (mainDbExists) {
+      try {
+        const content = fs.readFileSync(DB_FILE, "utf-8");
+        const mainData = JSON.parse(content);
+        let updated = false;
+        if (mainData.periodConfig) {
+          delete mainData.periodConfig;
+          updated = true;
+        }
+        if (mainData.cycleLogs) {
+          delete mainData.cycleLogs;
+          updated = true;
+        }
+        if (updated) {
+          fs.writeFileSync(DB_FILE, JSON.stringify(mainData, null, 2), "utf-8");
+          console.log("Cleaned leftover cycle fields from sanctuary_db.json");
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+  }
+}
+
+migrateCycleData();
 
 // Seeding Default Database
 const DEFAULT_GIFTS: SensoryGift[] = [
@@ -221,11 +310,44 @@ function writeDB(data: SanctuaryDB) {
   }
 }
 
+function readCycleDB(): CycleTrackerDB {
+  try {
+    if (fs.existsSync(CYCLE_DB_FILE)) {
+      const content = fs.readFileSync(CYCLE_DB_FILE, "utf-8");
+      const data = JSON.parse(content);
+      if (!data.periodConfig) {
+        data.periodConfig = DEFAULT_CYCLE_DB.periodConfig;
+      }
+      if (!data.cycleLogs) {
+        data.cycleLogs = [];
+      }
+      return data;
+    }
+  } catch (err) {
+    console.error("Error reading cycle database file, returning defaults. Error:", err);
+  }
+  writeCycleDB(DEFAULT_CYCLE_DB);
+  return DEFAULT_CYCLE_DB;
+}
+
+function writeCycleDB(data: CycleTrackerDB) {
+  try {
+    fs.writeFileSync(CYCLE_DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Error writing to cycle database file:", err);
+  }
+}
+
 // API Routes
 // 1. Full Database Health & Pull
 app.get("/api/database", (req: Request, res: Response) => {
   const db = readDB();
-  res.json(db);
+  const cycleDb = readCycleDB();
+  res.json({
+    ...db,
+    periodConfig: cycleDb.periodConfig,
+    cycleLogs: cycleDb.cycleLogs
+  });
 });
 
 // 2. Sensory Gifts Endpoints
@@ -486,48 +608,56 @@ app.post("/api/gallery/delete/:id", (req: Request, res: Response) => {
 
 // 6. Period Tracker Configuration
 app.post("/api/period/config", (req: Request, res: Response) => {
-  const { lastPeriodDate, cycleLength, periodLength } = req.body;
+  const { lastPeriodDate, cycleLength, periodLength, pregnancyMode, pregnancyStartDate } = req.body;
   if (!lastPeriodDate || !cycleLength || !periodLength) {
      res.status(400).json({ error: "Missing config variables" });
      return;
   }
-  const db = readDB();
-  db.periodConfig = {
+  const cycleDb = readCycleDB();
+  cycleDb.periodConfig = {
     lastPeriodDate,
     cycleLength: parseInt(cycleLength),
-    periodLength: parseInt(periodLength)
+    periodLength: parseInt(periodLength),
+    pregnancyMode: !!pregnancyMode,
+    pregnancyStartDate: pregnancyStartDate || ""
   };
-  writeDB(db);
-  res.json(db.periodConfig);
+  writeCycleDB(cycleDb);
+  res.json(cycleDb.periodConfig);
 });
 
 // 7. Add Period Daily Symtoms Log
 app.post("/api/period/log", (req: Request, res: Response) => {
-  const { date, symptoms, moods, intimacyLevel, notes } = req.body;
+  const { date, symptoms, moods, intimacyLevel, notes, flow, temperature, weight, waterIntake, sleepDuration, sex } = req.body;
   if (!date || !symptoms || !moods || !intimacyLevel) {
      res.status(400).json({ error: "Missing required daily credentials" });
      return;
   }
-  const db = readDB();
+  const cycleDb = readCycleDB();
   
   // check if log for same date already exists, overwrite if yes
-  const existingIndex = db.cycleLogs.findIndex(l => l.date === date);
+  const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === date);
   const logItem: CycleLog = {
-    id: existingIndex !== -1 ? db.cycleLogs[existingIndex].id : `log_${Date.now()}`,
+    id: existingIndex !== -1 ? cycleDb.cycleLogs[existingIndex].id : `log_${Date.now()}`,
     date,
     symptoms,
     moods,
     intimacyLevel,
-    notes
+    notes,
+    flow: flow || "None",
+    temperature: temperature !== undefined && temperature !== null && temperature !== "" ? Number(temperature) : undefined,
+    weight: weight !== undefined && weight !== null && weight !== "" ? Number(weight) : undefined,
+    waterIntake: waterIntake !== undefined && waterIntake !== null && waterIntake !== "" ? Number(waterIntake) : undefined,
+    sleepDuration: sleepDuration !== undefined && sleepDuration !== null && sleepDuration !== "" ? Number(sleepDuration) : undefined,
+    sex: sex || "None"
   };
 
   if (existingIndex !== -1) {
-    db.cycleLogs[existingIndex] = logItem;
+    cycleDb.cycleLogs[existingIndex] = logItem;
   } else {
-    db.cycleLogs.unshift(logItem);
+    cycleDb.cycleLogs.unshift(logItem);
   }
 
-  writeDB(db);
+  writeCycleDB(cycleDb);
   res.json(logItem);
 });
 
@@ -631,40 +761,48 @@ app.post("/api/period/import", (req: Request, res: Response) => {
      return;
   }
   
-  const db = readDB();
+  const cycleDb = readCycleDB();
   let mergedCount = 0;
 
   logs.forEach((importedLog) => {
     if (!importedLog.date) return;
-    const existingIndex = db.cycleLogs.findIndex(l => l.date === importedLog.date);
+    const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === importedLog.date);
     const logItem: CycleLog = {
       id: importedLog.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       date: importedLog.date,
       symptoms: Array.isArray(importedLog.symptoms) ? importedLog.symptoms : [],
       moods: Array.isArray(importedLog.moods) ? importedLog.moods : [],
       intimacyLevel: importedLog.intimacyLevel || "None",
-      notes: importedLog.notes || ""
+      notes: importedLog.notes || "",
+      flow: importedLog.flow || "None",
+      temperature: importedLog.temperature !== undefined && importedLog.temperature !== null && importedLog.temperature !== "" ? Number(importedLog.temperature) : undefined,
+      weight: importedLog.weight !== undefined && importedLog.weight !== null && importedLog.weight !== "" ? Number(importedLog.weight) : undefined,
+      waterIntake: importedLog.waterIntake !== undefined && importedLog.waterIntake !== null && importedLog.waterIntake !== "" ? Number(importedLog.waterIntake) : undefined,
+      sleepDuration: importedLog.sleepDuration !== undefined && importedLog.sleepDuration !== null && importedLog.sleepDuration !== "" ? Number(importedLog.sleepDuration) : undefined,
+      sex: importedLog.sex || "None"
     };
 
     if (existingIndex !== -1) {
-      db.cycleLogs[existingIndex] = logItem;
+      cycleDb.cycleLogs[existingIndex] = logItem;
     } else {
-      db.cycleLogs.push(logItem);
+      cycleDb.cycleLogs.push(logItem);
     }
     mergedCount++;
   });
 
   // Sort chronologically descending
-  db.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  cycleDb.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   if (config) {
-    if (config.lastPeriodDate) db.periodConfig.lastPeriodDate = config.lastPeriodDate;
-    if (config.cycleLength) db.periodConfig.cycleLength = Number(config.cycleLength);
-    if (config.periodLength) db.periodConfig.periodLength = Number(config.periodLength);
+    if (config.lastPeriodDate) cycleDb.periodConfig.lastPeriodDate = config.lastPeriodDate;
+    if (config.cycleLength) cycleDb.periodConfig.cycleLength = Number(config.cycleLength);
+    if (config.periodLength) cycleDb.periodConfig.periodLength = Number(config.periodLength);
+    if (config.pregnancyMode !== undefined) cycleDb.periodConfig.pregnancyMode = !!config.pregnancyMode;
+    if (config.pregnancyStartDate !== undefined) cycleDb.periodConfig.pregnancyStartDate = config.pregnancyStartDate;
   }
 
-  writeDB(db);
-  res.json({ success: true, count: mergedCount, periodConfig: db.periodConfig, logsCount: db.cycleLogs.length });
+  writeCycleDB(cycleDb);
+  res.json({ success: true, count: mergedCount, periodConfig: cycleDb.periodConfig, logsCount: cycleDb.cycleLogs.length });
 });
 
 
@@ -701,12 +839,14 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
       Analyze the attached document carefully. Extract:
       1. Average cycle length (default to 28 if not found) and average period/bleeding duration (default to 5 if not found).
       2. The most recent period start date in YYYY-MM-DD format (for periodConfig).
-      3. A list of daily logs with identified dates (YYYY-MM-DD), symptoms, moods, intimacy levels, and optional notes.
+      3. A list of daily logs with identified dates (YYYY-MM-DD), symptoms, moods, intimacy levels, and optional notes. Also extract flow intensity (None, Spotting, Light, Medium, Heavy), temperature, weight, water intake, sleep duration, and sexual activity if available.
       
       Ensure you match:
       - Symptoms options exactly from: "Cramps", "Bloating", "Headache", "Tenderness", "Fatigue", "Insomnia", "Anxiety", "High Energy", "High Sex Drive".
       - Moods options exactly from: "Radiant", "Calm", "Tender", "Playful", "Sassy", "Vulnerable", "Exhausted", "Irritable", "Anxious".
       - IntimacyLevel option exactly from: "None", "Light Touch", "Sensual", "Intense".
+      - Flow options exactly from: "None", "Spotting", "Light", "Medium", "Heavy".
+      - Sex options exactly from: "None", "Protected", "Unprotected".
       
       Please return a single JSON object containing these keys.`;
 
@@ -744,7 +884,13 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
                       items: { type: Type.STRING }
                     },
                     intimacyLevel: { type: Type.STRING, description: "Intimacy level options: None, Light Touch, Sensual, Intense" },
-                    notes: { type: Type.STRING, description: "Short descriptive note about her condition on this day." }
+                    notes: { type: Type.STRING, description: "Short descriptive note about her condition on this day." },
+                    flow: { type: Type.STRING, description: "Flow intensity: None, Spotting, Light, Medium, Heavy." },
+                    temperature: { type: Type.NUMBER, description: "Basal Body Temperature if found." },
+                    weight: { type: Type.NUMBER, description: "Weight if found." },
+                    waterIntake: { type: Type.NUMBER, description: "Water intake in ml if found." },
+                    sleepDuration: { type: Type.NUMBER, description: "Sleep duration in hours if found." },
+                    sex: { type: Type.STRING, description: "Sexual activity: None, Protected, Unprotected." }
                   },
                   required: ["date", "symptoms", "moods", "intimacyLevel"]
                 }
@@ -757,9 +903,7 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
 
       if (response && response.text) {
         const parsedData = JSON.parse(response.text.trim());
-        
-        // Save imported data directly or return it for UI confirmation
-        const db = readDB();
+        const cycleDb = readCycleDB();
         
         const logs = parsedData.logs || [];
         const config = parsedData.periodConfig;
@@ -767,40 +911,46 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
         let mergedCount = 0;
         logs.forEach((importedLog: any) => {
           if (!importedLog.date) return;
-          const existingIndex = db.cycleLogs.findIndex(l => l.date === importedLog.date);
+          const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === importedLog.date);
           const logItem: CycleLog = {
             id: importedLog.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
             date: importedLog.date,
             symptoms: Array.isArray(importedLog.symptoms) ? importedLog.symptoms : [],
             moods: Array.isArray(importedLog.moods) ? importedLog.moods : [],
             intimacyLevel: importedLog.intimacyLevel || "None",
-            notes: importedLog.notes || ""
+            notes: importedLog.notes || "",
+            flow: importedLog.flow || "None",
+            temperature: importedLog.temperature !== undefined ? Number(importedLog.temperature) : undefined,
+            weight: importedLog.weight !== undefined ? Number(importedLog.weight) : undefined,
+            waterIntake: importedLog.waterIntake !== undefined ? Number(importedLog.waterIntake) : undefined,
+            sleepDuration: importedLog.sleepDuration !== undefined ? Number(importedLog.sleepDuration) : undefined,
+            sex: importedLog.sex || "None"
           };
 
           if (existingIndex !== -1) {
-            db.cycleLogs[existingIndex] = logItem;
+            cycleDb.cycleLogs[existingIndex] = logItem;
           } else {
-            db.cycleLogs.push(logItem);
+            cycleDb.cycleLogs.push(logItem);
           }
           mergedCount++;
         });
 
         // Sort chronologically descending
-        db.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        cycleDb.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         if (config) {
-          if (config.lastPeriodDate) db.periodConfig.lastPeriodDate = config.lastPeriodDate;
-          if (config.cycleLength) db.periodConfig.cycleLength = Number(config.cycleLength);
-          if (config.periodLength) db.periodConfig.periodLength = Number(config.periodLength);
+          if (config.lastPeriodDate) cycleDb.periodConfig.lastPeriodDate = config.lastPeriodDate;
+          if (config.cycleLength) cycleDb.periodConfig.cycleLength = Number(config.cycleLength);
+          if (config.periodLength) cycleDb.periodConfig.periodLength = Number(config.periodLength);
         }
 
-        writeDB(db);
+        writeCycleDB(cycleDb);
 
         res.json({
           success: true,
           count: mergedCount,
-          periodConfig: db.periodConfig,
-          logsCount: db.cycleLogs.length,
+          periodConfig: cycleDb.periodConfig,
+          logsCount: cycleDb.cycleLogs.length,
           extractedLogs: logs
         });
         return;
@@ -814,7 +964,7 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
 
   // Robust, beautiful, realistic mock parser fallback when GEMINI_API_KEY is not assigned
   try {
-    const db = readDB();
+    const cycleDb = readCycleDB();
     const today = new Date();
     
     // Create realistic parsed cycle items
@@ -822,7 +972,9 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
     const generatedConfig = {
       lastPeriodDate: new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       cycleLength: 28,
-      periodLength: 5
+      periodLength: 5,
+      pregnancyMode: false,
+      pregnancyStartDate: ""
     };
 
     // Synthesize logs for past period started 14 days ago
@@ -834,34 +986,79 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
         symptoms: i === 0 || i === 1 ? ["Cramps", "Fatigue"] : ["Tenderness"],
         moods: i === 0 ? ["Vulnerable"] : ["Calm"],
         intimacyLevel: i === 0 ? "None" : "Light Touch",
-        notes: `Simulated period log day ${i + 1} extracted from PDF.`
+        notes: `Simulated period log day ${i + 1} extracted from PDF.`,
+        flow: i === 0 ? "Heavy" : i === 1 ? "Medium" : "Light",
+        temperature: 36.5 + i * 0.1,
+        weight: 58.2,
+        waterIntake: 1500 + i * 250,
+        sleepDuration: 7 + (i % 2),
+        sex: i === 3 ? "Protected" : "None"
       });
     }
 
     generatedLogs.forEach((mockLog) => {
-      const existingIndex = db.cycleLogs.findIndex(l => l.date === mockLog.date);
+      const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === mockLog.date);
       if (existingIndex !== -1) {
-        db.cycleLogs[existingIndex] = mockLog;
+        cycleDb.cycleLogs[existingIndex] = mockLog;
       } else {
-        db.cycleLogs.push(mockLog);
+        cycleDb.cycleLogs.push(mockLog);
       }
     });
 
-    db.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    db.periodConfig = generatedConfig;
+    cycleDb.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    cycleDb.periodConfig = generatedConfig;
     
-    writeDB(db);
+    writeCycleDB(cycleDb);
 
     res.json({
       success: true,
       count: generatedLogs.length,
-      periodConfig: db.periodConfig,
-      logsCount: db.cycleLogs.length,
+      periodConfig: cycleDb.periodConfig,
+      logsCount: cycleDb.cycleLogs.length,
       extractedLogs: generatedLogs,
       simulated: true
     });
   } catch (err: any) {
     res.status(500).json({ error: "Failed simulated data builder fallback: " + err.message });
+  }
+});
+
+// 11c. Period Tracker Export Route
+app.get("/api/period/export", (req: Request, res: Response) => {
+  const format = req.query.format as string;
+  const cycleDb = readCycleDB();
+
+  if (format === "csv") {
+    // Generate CSV
+    const headers = ["ID", "Date", "Flow", "Symptoms", "Moods", "Intimacy Level", "Sex", "Temperature", "Weight", "Water Intake (ml)", "Sleep Duration (hrs)", "Notes"];
+    const rows = cycleDb.cycleLogs.map(log => [
+      log.id,
+      log.date,
+      log.flow || "None",
+      (log.symptoms || []).join(";"),
+      (log.moods || []).join(";"),
+      log.intimacyLevel,
+      log.sex || "None",
+      log.temperature !== undefined ? log.temperature : "",
+      log.weight !== undefined ? log.weight : "",
+      log.waterIntake !== undefined ? log.waterIntake : "",
+      log.sleepDuration !== undefined ? log.sleepDuration : "",
+      (log.notes || "").replace(/"/g, '""')
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(r => r.map(val => `"${val}"`).join(","))
+    ].join("\n");
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=cycle_tracker_export.csv");
+    res.send(csvContent);
+  } else {
+    // Default to JSON
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", "attachment; filename=cycle_tracker_export.json");
+    res.send(JSON.stringify(cycleDb, null, 2));
   }
 });
 

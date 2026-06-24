@@ -30,12 +30,25 @@ export interface CycleLog {
   moods: string[];
   intimacyLevel: "None" | "Light Touch" | "Sensual" | "Intense";
   notes?: string;
+  flow?: "None" | "Spotting" | "Light" | "Medium" | "Heavy";
+  temperature?: number;
+  weight?: number;
+  waterIntake?: number;
+  sleepDuration?: number;
+  sex?: "None" | "Protected" | "Unprotected";
 }
 
 export interface PeriodConfig {
   lastPeriodDate: string; // YYYY-MM-DD
   cycleLength: number;    // default 28
   periodLength: number;   // default 5
+  pregnancyMode?: boolean;
+  pregnancyStartDate?: string; // YYYY-MM-DD (Gestation LMP)
+}
+
+export interface CycleTrackerDB {
+  periodConfig: PeriodConfig;
+  cycleLogs: CycleLog[];
 }
 
 export interface WickedChallenge {
