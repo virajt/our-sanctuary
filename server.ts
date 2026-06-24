@@ -327,7 +327,7 @@ app.post("/api/wicked/generate", async (req: Request, res: Response) => {
       Return ONLY the raw 1-2 sentence sexual directive directly, starting with the action. Do not explain, greet, or include any disclaimers. Ensure it is fully explicit, erotic, and passionate.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-1.5-flash",
         contents: prompt,
         config: {
           temperature: 0.9,
@@ -380,7 +380,7 @@ app.post("/api/gallery/prompt", async (req: Request, res: Response) => {
       }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-1.5-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -443,7 +443,7 @@ app.post("/api/gallery/upload", async (req: Request, res: Response) => {
         Avoid any sterile descriptions, vulgar vocabulary, or robotic analysis. Write it as a diary entry or deep romantic dedication to each other.`;
 
         const response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
+          model: "gemini-1.5-flash",
           contents: { parts: [imagePart, { text: textPrompt }] },
           config: {
             temperature: 0.9
@@ -711,7 +711,7 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
       Please return a single JSON object containing these keys.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-1.5-flash",
         contents: [documentPart, { text: prompt }],
         config: {
           responseMimeType: "application/json",
@@ -909,7 +909,7 @@ app.post("/api/gifts/generate", async (req: Request, res: Response) => {
       Do not include any other text or markdown codeblocks besides raw JSON.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-1.5-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -1069,7 +1069,7 @@ app.post("/api/kitchen/generate", async (req: Request, res: Response) => {
       Do not include any extra text or code blocks. Return raw JSON.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-1.5-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
