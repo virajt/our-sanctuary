@@ -1,14 +1,17 @@
 steps:
   - name: 'bash'
+    env:
+      - 'CLIENT_ID_CHECK=${_GOOGLE_CLIENT_ID}'
     args:
       - '-c'
       - |
         echo "=== DEBUG: substitution variable check ==="
-        echo "GOOGLE_CLIENT_ID substitution value length: ${#_GOOGLE_CLIENT_ID}"
-        if [ -z "$_GOOGLE_CLIENT_ID" ]; then
-          echo "WARNING: _GOOGLE_CLIENT_ID IS EMPTY"
+        echo "Direct YAML substitution as literal text: [${_GOOGLE_CLIENT_ID}]"
+        echo "Via env: passthrough, length: ${#CLIENT_ID_CHECK}"
+        if [ -z "$CLIENT_ID_CHECK" ]; then
+          echo "WARNING: empty via env passthrough too"
         else
-          echo "_GOOGLE_CLIENT_ID is set (first 10 chars): ${_GOOGLE_CLIENT_ID:0:10}..."
+          echo "Via env passthrough (first 10 chars): ${CLIENT_ID_CHECK:0:10}..."
         fi
         echo "=== END DEBUG ==="
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
