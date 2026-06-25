@@ -479,6 +479,33 @@ export default function App() {
     }
   };
 
+  // Primary Landing Page authentication gate (Google Sign-In, server-verified)
+  // This MUST run before the database-loading check below, since the
+  // database only ever loads once a Google session exists - otherwise
+  // isLoading/!db would never resolve and the app would hang forever on
+  // the loading screen, with no way to ever reach the sign-in button.
+  if (isCheckingSession) {
+    return (
+      <div className={`min-h-screen bg-[#050505] flex items-center justify-center`} id="sanctuary-app">
+        <motion.div
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+          className="text-neutral-500 text-xs font-mono uppercase tracking-widest"
+        >
+          Verifying session...
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <div id="sanctuary-app">
+        <GoogleSignIn onCredential={signInWithGoogle} error={authError} />
+      </div>
+    );
+  }
+
   if (isLoading || !db) {
     return (
       <div className="min-h-screen bg-luxury-blank flex items-center justify-center p-8">
@@ -497,29 +524,6 @@ export default function App() {
     : activeTheme === "Golden Hour" 
     ? "theme-golden-hour" 
     : "theme-passionate-red";
-
-  // Primary Landing Page authentication gate (Google Sign-In, server-verified)
-  if (isCheckingSession) {
-    return (
-      <div className={`min-h-screen bg-[#050505] flex items-center justify-center ${themeClass}`} id="sanctuary-app">
-        <motion.div
-          animate={{ opacity: [0.4, 1, 0.4] }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-          className="text-neutral-500 text-xs font-mono uppercase tracking-widest"
-        >
-          Verifying session...
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (!authUser) {
-    return (
-      <div className={themeClass} id="sanctuary-app">
-        <GoogleSignIn onCredential={signInWithGoogle} error={authError} />
-      </div>
-    );
-  }
 
 
   return (
