@@ -33,16 +33,25 @@ export default function GiftPurchasesView({ purchases, onAddPurchase, onDeletePu
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const MAX_PHOTO_SIZE_MB = 8;
+
   const handleImageFile = (file: File) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       alert("Please upload a valid image file.");
       return;
     }
+    if (file.size > MAX_PHOTO_SIZE_MB * 1024 * 1024) {
+      alert(`Please upload an image smaller than ${MAX_PHOTO_SIZE_MB}MB.`);
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (e) => {
       setPhotoUrl(e.target?.result as string);
+    };
+    reader.onerror = () => {
+      alert("Failed to read that image file. Please try another.");
     };
     reader.readAsDataURL(file);
   };

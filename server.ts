@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
+import cookieParser from "cookie-parser";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
@@ -19,12 +20,59 @@ import {
   generateProceduralWicked, 
   generateProceduralPhotoPrompt 
 } from "./server/generators";
+import {
+  verifyGoogleIdToken,
+  issueSessionCookie,
+  clearSessionCookie,
+  getSession,
+  requireAuth
+} from "./server/auth";
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 // Enable JSON bodies with higher limits for base64 photo uploads
 app.use(express.json({ limit: "25mb" }));
+app.use(cookieParser());
+
+// --- Authentication routes (must be reachable BEFORE the auth gate below) ---
+
+// Exchange a Google ID token (from Google Identity Services on the frontend)
+// for a server-signed session cookie. Rejects anyone not on ALLOWED_EMAILS.
+app.post("/api/auth/google", async (req: Request, res: Response) => {
+  const { idToken } = req.body;
+  if (!idToken) {
+    res.status(400).json({ error: "Missing idToken." });
+    return;
+  }
+  try {
+    const session = await verifyGoogleIdToken(idToken);
+    issueSessionCookie(res, session);
+    res.json({ email: session.email, name: session.name, picture: session.picture });
+  } catch (err) {
+    console.warn("[auth] Google sign-in rejected:", (err as Error).message);
+    res.status(401).json({ error: "Sign-in not authorized for this account." });
+  }
+});
+
+// Returns the current session, if any. Used by the frontend on load to
+// decide whether to show the sign-in screen or the app itself.
+app.get("/api/auth/me", (req: Request, res: Response) => {
+  const session = getSession(req);
+  if (!session) {
+    res.status(401).json({ error: "Not authenticated." });
+    return;
+  }
+  res.json(session);
+});
+
+app.post("/api/auth/logout", (req: Request, res: Response) => {
+  clearSessionCookie(res);
+  res.json({ ok: true });
+});
+
+// --- Everything below this line requires a valid, whitelisted session ---
+app.use("/api", requireAuth);
 
 // Initialize Gemini SDK with User-Agent required header
 const apiKey = process.env.GEMINI_API_KEY;
@@ -276,7 +324,49 @@ const DEFAULT_DB: SanctuaryDB = {
   ]
 };
 
+// Simple async mutex. Every route handler that reads-then-writes the JSON
+// database wraps its body in withDataLock(...) so two near-simultaneous
+// requests (e.g. both of you tapping "claim gift" at once) can't both read
+// the same snapshot and then overwrite each other's change - they're
+// queued and run one at a time instead.
+let dataLockQueue: Promise<void> = Promise.resolve();
+function withDataLock<T>(fn: () => T | Promise<T>): Promise<T> {
+  const run = dataLockQueue.then(fn, fn);
+  dataLockQueue = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
+
 // Database I/O Helpers
+//
+// Writes are made atomic (write to a temp file, then rename over the real
+// file) so a crash or concurrent read never sees a half-written, corrupt
+// JSON file. Writes to the same file are also serialized through a tiny
+// per-file queue so two near-simultaneous requests (e.g. both of you tapping
+// at once) can't race and silently drop one person's update.
+const writeQueues = new Map<string, Promise<void>>();
+
+function atomicWriteSync(filePath: string, data: unknown) {
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), "utf-8");
+  fs.renameSync(tmpPath, filePath);
+}
+
+function queuedWrite(filePath: string, data: unknown): Promise<void> {
+  const previous = writeQueues.get(filePath) || Promise.resolve();
+  const next = previous
+    .catch(() => {
+      /* swallow previous failure so the queue keeps moving */
+    })
+    .then(() => {
+      atomicWriteSync(filePath, data);
+    });
+  writeQueues.set(filePath, next);
+  return next;
+}
+
 function readDB(): SanctuaryDB {
   try {
     if (fs.existsSync(DB_FILE)) {
@@ -304,7 +394,9 @@ function readDB(): SanctuaryDB {
 
 function writeDB(data: SanctuaryDB) {
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+    queuedWrite(DB_FILE, data).catch((err) => {
+      console.error("Error writing to database file:", err);
+    });
   } catch (err) {
     console.error("Error writing to database file:", err);
   }
@@ -332,7 +424,9 @@ function readCycleDB(): CycleTrackerDB {
 
 function writeCycleDB(data: CycleTrackerDB) {
   try {
-    fs.writeFileSync(CYCLE_DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+    queuedWrite(CYCLE_DB_FILE, data).catch((err) => {
+      console.error("Error writing to cycle database file:", err);
+    });
   } catch (err) {
     console.error("Error writing to cycle database file:", err);
   }
@@ -351,71 +445,86 @@ app.get("/api/database", (req: Request, res: Response) => {
 });
 
 // 2. Sensory Gifts Endpoints
-app.post("/api/gifts", (req: Request, res: Response) => {
+app.post("/api/gifts", async (req: Request, res: Response) => {
   const { title, description, category, receiver } = req.body;
   if (!title || !description || !category || !receiver) {
      res.status(400).json({ error: "Missing required fields" });
      return;
   }
-  const db = readDB();
-  const newGift: SensoryGift = {
-    id: `gift_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-    title,
-    description,
-    category,
-    receiver,
-    status: "Available",
-    custom: true
-  };
-  db.gifts.push(newGift);
-  writeDB(db);
+  const newGift = await withDataLock(() => {
+    const db = readDB();
+    const gift: SensoryGift = {
+      id: `gift_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      title,
+      description,
+      category,
+      receiver,
+      status: "Available",
+      custom: true
+    };
+    db.gifts.push(gift);
+    writeDB(db);
+    return gift;
+  });
   res.json(newGift);
 });
 
-app.post("/api/gifts/:id/claim", (req: Request, res: Response) => {
+app.post("/api/gifts/:id/claim", async (req: Request, res: Response) => {
   const { id } = req.params;
   const { claimedBy } = req.body; // "Him" | "Her"
   if (!claimedBy) {
      res.status(400).json({ error: "claimedBy is required" });
      return;
   }
-  const db = readDB();
-  const giftIndex = db.gifts.findIndex(g => g.id === id);
-  if (giftIndex === -1) {
-     res.status(404).json({ error: "Gift not found" });
-     return;
+  const result = await withDataLock(() => {
+    const db = readDB();
+    const giftIndex = db.gifts.findIndex(g => g.id === id);
+    if (giftIndex === -1) return null;
+    db.gifts[giftIndex].status = "Claimed";
+    db.gifts[giftIndex].claimedBy = claimedBy;
+    db.gifts[giftIndex].claimedAt = new Date().toISOString();
+    writeDB(db);
+    return db.gifts[giftIndex];
+  });
+  if (!result) {
+    res.status(404).json({ error: "Gift not found" });
+    return;
   }
-  db.gifts[giftIndex].status = "Claimed";
-  db.gifts[giftIndex].claimedBy = claimedBy;
-  db.gifts[giftIndex].claimedAt = new Date().toISOString();
-  writeDB(db);
-  res.json(db.gifts[giftIndex]);
+  res.json(result);
 });
 
-app.post("/api/gifts/:id/redeem", (req: Request, res: Response) => {
+app.post("/api/gifts/:id/redeem", async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = readDB();
-  const giftIndex = db.gifts.findIndex(g => g.id === id);
-  if (giftIndex === -1) {
-     res.status(404).json({ error: "Gift not found" });
-     return;
+  const result = await withDataLock(() => {
+    const db = readDB();
+    const giftIndex = db.gifts.findIndex(g => g.id === id);
+    if (giftIndex === -1) return null;
+    db.gifts[giftIndex].status = "Redeemed";
+    db.gifts[giftIndex].redeemedAt = new Date().toISOString();
+    writeDB(db);
+    return db.gifts[giftIndex];
+  });
+  if (!result) {
+    res.status(404).json({ error: "Gift not found" });
+    return;
   }
-  db.gifts[giftIndex].status = "Redeemed";
-  db.gifts[giftIndex].redeemedAt = new Date().toISOString();
-  writeDB(db);
-  res.json(db.gifts[giftIndex]);
+  res.json(result);
 });
 
-app.post("/api/gifts/:id/delete", (req: Request, res: Response) => {
+app.post("/api/gifts/:id/delete", async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = readDB();
-  const filtered = db.gifts.filter(g => g.id !== id);
-  if (filtered.length === db.gifts.length) {
-     res.status(404).json({ error: "Gift not found" });
-     return;
+  const found = await withDataLock(() => {
+    const db = readDB();
+    const filtered = db.gifts.filter(g => g.id !== id);
+    if (filtered.length === db.gifts.length) return false;
+    db.gifts = filtered;
+    writeDB(db);
+    return true;
+  });
+  if (!found) {
+    res.status(404).json({ error: "Gift not found" });
+    return;
   }
-  db.gifts = filtered;
-  writeDB(db);
   res.json({ success: true, message: "Gift removed successfully." });
 });
 
@@ -427,9 +536,6 @@ app.post("/api/wicked/generate", async (req: Request, res: Response) => {
      return;
   }
 
-  // Get dynamic settings if admin added any customization
-  const db = readDB();
-  
   // 1st Layer: Generate basic procedural structure so we always have perfect values
   const baseChallenge = generateProceduralWicked(target);
   if (intensity) {
@@ -465,13 +571,18 @@ app.post("/api/wicked/generate", async (req: Request, res: Response) => {
     }
   }
 
-  // Store in history
-  db.wickedChallengesHistory.unshift(baseChallenge);
-  // Keep history manageable (last 50 items)
-  if (db.wickedChallengesHistory.length > 50) {
-    db.wickedChallengesHistory.pop();
-  }
-  writeDB(db);
+  // Store in history (read fresh inside the lock, since the Gemini call
+  // above may have taken a while - using a snapshot from before the call
+  // could overwrite a change made by the other partner in the meantime)
+  await withDataLock(() => {
+    const db = readDB();
+    db.wickedChallengesHistory.unshift(baseChallenge);
+    // Keep history manageable (last 50 items)
+    if (db.wickedChallengesHistory.length > 50) {
+      db.wickedChallengesHistory.pop();
+    }
+    writeDB(db);
+  });
 
   res.json(baseChallenge);
 });
@@ -540,7 +651,6 @@ app.post("/api/gallery/upload", async (req: Request, res: Response) => {
      return;
   }
 
-  const db = readDB();
   let finalCaption = "A beautiful private sensory memory, locked safely in our sanctuary.";
   let capByAI = false;
 
@@ -592,217 +702,242 @@ app.post("/api/gallery/upload", async (req: Request, res: Response) => {
     captionGeneratedByAI: capByAI
   };
 
-  db.vaultPhotos.unshift(newPhoto);
-  writeDB(db);
+  await withDataLock(() => {
+    const db = readDB();
+    db.vaultPhotos.unshift(newPhoto);
+    writeDB(db);
+  });
 
   res.json(newPhoto);
 });
 
-app.post("/api/gallery/delete/:id", (req: Request, res: Response) => {
+app.post("/api/gallery/delete/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = readDB();
-  db.vaultPhotos = db.vaultPhotos.filter(p => p.id !== id);
-  writeDB(db);
+  await withDataLock(() => {
+    const db = readDB();
+    db.vaultPhotos = db.vaultPhotos.filter(p => p.id !== id);
+    writeDB(db);
+  });
   res.json({ success: true });
 });
 
 // 6. Period Tracker Configuration
-app.post("/api/period/config", (req: Request, res: Response) => {
+app.post("/api/period/config", async (req: Request, res: Response) => {
   const { lastPeriodDate, cycleLength, periodLength, pregnancyMode, pregnancyStartDate } = req.body;
   if (!lastPeriodDate || !cycleLength || !periodLength) {
      res.status(400).json({ error: "Missing config variables" });
      return;
   }
-  const cycleDb = readCycleDB();
-  cycleDb.periodConfig = {
-    lastPeriodDate,
-    cycleLength: parseInt(cycleLength),
-    periodLength: parseInt(periodLength),
-    pregnancyMode: !!pregnancyMode,
-    pregnancyStartDate: pregnancyStartDate || ""
-  };
-  writeCycleDB(cycleDb);
-  res.json(cycleDb.periodConfig);
+  const config = await withDataLock(() => {
+    const cycleDb = readCycleDB();
+    cycleDb.periodConfig = {
+      lastPeriodDate,
+      cycleLength: parseInt(cycleLength),
+      periodLength: parseInt(periodLength),
+      pregnancyMode: !!pregnancyMode,
+      pregnancyStartDate: pregnancyStartDate || ""
+    };
+    writeCycleDB(cycleDb);
+    return cycleDb.periodConfig;
+  });
+  res.json(config);
 });
 
 // 7. Add Period Daily Symtoms Log
-app.post("/api/period/log", (req: Request, res: Response) => {
+app.post("/api/period/log", async (req: Request, res: Response) => {
   const { date, symptoms, moods, intimacyLevel, notes, flow, temperature, weight, waterIntake, sleepDuration, sex } = req.body;
   if (!date || !symptoms || !moods || !intimacyLevel) {
      res.status(400).json({ error: "Missing required daily credentials" });
      return;
   }
-  const cycleDb = readCycleDB();
-  
-  // check if log for same date already exists, overwrite if yes
-  const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === date);
-  const logItem: CycleLog = {
-    id: existingIndex !== -1 ? cycleDb.cycleLogs[existingIndex].id : `log_${Date.now()}`,
-    date,
-    symptoms,
-    moods,
-    intimacyLevel,
-    notes,
-    flow: flow || "None",
-    temperature: temperature !== undefined && temperature !== null && temperature !== "" ? Number(temperature) : undefined,
-    weight: weight !== undefined && weight !== null && weight !== "" ? Number(weight) : undefined,
-    waterIntake: waterIntake !== undefined && waterIntake !== null && waterIntake !== "" ? Number(waterIntake) : undefined,
-    sleepDuration: sleepDuration !== undefined && sleepDuration !== null && sleepDuration !== "" ? Number(sleepDuration) : undefined,
-    sex: sex || "None"
-  };
+  const logItem = await withDataLock(() => {
+    const cycleDb = readCycleDB();
 
-  if (existingIndex !== -1) {
-    cycleDb.cycleLogs[existingIndex] = logItem;
-  } else {
-    cycleDb.cycleLogs.unshift(logItem);
-  }
+    // check if log for same date already exists, overwrite if yes
+    const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === date);
+    const item: CycleLog = {
+      id: existingIndex !== -1 ? cycleDb.cycleLogs[existingIndex].id : `log_${Date.now()}`,
+      date,
+      symptoms,
+      moods,
+      intimacyLevel,
+      notes,
+      flow: flow || "None",
+      temperature: temperature !== undefined && temperature !== null && temperature !== "" ? Number(temperature) : undefined,
+      weight: weight !== undefined && weight !== null && weight !== "" ? Number(weight) : undefined,
+      waterIntake: waterIntake !== undefined && waterIntake !== null && waterIntake !== "" ? Number(waterIntake) : undefined,
+      sleepDuration: sleepDuration !== undefined && sleepDuration !== null && sleepDuration !== "" ? Number(sleepDuration) : undefined,
+      sex: sex || "None"
+    };
 
-  writeCycleDB(cycleDb);
+    if (existingIndex !== -1) {
+      cycleDb.cycleLogs[existingIndex] = item;
+    } else {
+      cycleDb.cycleLogs.unshift(item);
+    }
+
+    writeCycleDB(cycleDb);
+    return item;
+  });
   res.json(logItem);
 });
 
 // 8. Admin Settings Update
-app.post("/api/admin/settings", (req: Request, res: Response) => {
+app.post("/api/admin/settings", async (req: Request, res: Response) => {
   const { vibeIntensity, periodRemindersEnabled, wickedActions, wickedBodyParts, photoThemes, photoSetups, theme } = req.body;
-  const db = readDB();
-  
-  db.adminSettings = {
-    vibeIntensity: vibeIntensity || db.adminSettings.vibeIntensity,
-    periodRemindersEnabled: periodRemindersEnabled !== undefined ? periodRemindersEnabled : db.adminSettings.periodRemindersEnabled,
-    wickedActions: wickedActions || db.adminSettings.wickedActions,
-    wickedBodyParts: wickedBodyParts || db.adminSettings.wickedBodyParts,
-    photoThemes: photoThemes || db.adminSettings.photoThemes,
-    photoSetups: photoSetups || db.adminSettings.photoSetups,
-    theme: theme || db.adminSettings.theme || "Passionate Red"
-  };
-
-  writeDB(db);
-  res.json(db.adminSettings);
+  const settings = await withDataLock(() => {
+    const db = readDB();
+    db.adminSettings = {
+      vibeIntensity: vibeIntensity || db.adminSettings.vibeIntensity,
+      periodRemindersEnabled: periodRemindersEnabled !== undefined ? periodRemindersEnabled : db.adminSettings.periodRemindersEnabled,
+      wickedActions: wickedActions || db.adminSettings.wickedActions,
+      wickedBodyParts: wickedBodyParts || db.adminSettings.wickedBodyParts,
+      photoThemes: photoThemes || db.adminSettings.photoThemes,
+      photoSetups: photoSetups || db.adminSettings.photoSetups,
+      theme: theme || db.adminSettings.theme || "Passionate Red"
+    };
+    writeDB(db);
+    return db.adminSettings;
+  });
+  res.json(settings);
 });
 
 
 // 9. Important Dates System (Task 1)
-app.post("/api/dates", (req: Request, res: Response) => {
+app.post("/api/dates", async (req: Request, res: Response) => {
   const { id, title, date, category, description, reminderDaysAhead } = req.body;
   if (!title || !date || !category) {
      res.status(400).json({ error: "Missing required title, date, or category" });
      return;
   }
-  const db = readDB();
-  const dateId = id || `date_${Date.now()}`;
-  const existingIndex = db.importantDates.findIndex(d => d.id === dateId);
-  const dateItem: ImportantDate = {
-    id: dateId,
-    title,
-    date,
-    category,
-    description: description || "",
-    reminderDaysAhead: Number(reminderDaysAhead) || 0
-  };
+  const dateItem = await withDataLock(() => {
+    const db = readDB();
+    const dateId = id || `date_${Date.now()}`;
+    const existingIndex = db.importantDates.findIndex(d => d.id === dateId);
+    const item: ImportantDate = {
+      id: dateId,
+      title,
+      date,
+      category,
+      description: description || "",
+      reminderDaysAhead: Number(reminderDaysAhead) || 0
+    };
 
-  if (existingIndex !== -1) {
-    db.importantDates[existingIndex] = dateItem;
-  } else {
-    db.importantDates.push(dateItem);
-  }
+    if (existingIndex !== -1) {
+      db.importantDates[existingIndex] = item;
+    } else {
+      db.importantDates.push(item);
+    }
 
-  writeDB(db);
+    writeDB(db);
+    return item;
+  });
   res.json(dateItem);
 });
 
-app.delete("/api/dates/:id", (req: Request, res: Response) => {
+app.delete("/api/dates/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = readDB();
-  db.importantDates = db.importantDates.filter(d => d.id !== id);
-  writeDB(db);
+  await withDataLock(() => {
+    const db = readDB();
+    db.importantDates = db.importantDates.filter(d => d.id !== id);
+    writeDB(db);
+  });
   res.json({ success: true, message: "Date notification deleted" });
 });
 
 
 // 10. Gift Purchases Log with Photo Support (Task 4)
-app.post("/api/gift-purchases", (req: Request, res: Response) => {
+app.post("/api/gift-purchases", async (req: Request, res: Response) => {
   const { title, description, category, photoUrl, buyer, price } = req.body;
   if (!title || !description || !category || !buyer) {
      res.status(400).json({ error: "Missing required physical gift details" });
      return;
   }
-  
-  const db = readDB();
-  const newPurchase: GiftPurchase = {
-    id: `purchase_${Date.now()}`,
-    title,
-    description,
-    category,
-    photoUrl: photoUrl || "",
-    buyer,
-    price: price || "",
-    timestamp: new Date().toISOString()
-  };
 
-  db.giftPurchases.unshift(newPurchase);
-  writeDB(db);
+  const newPurchase = await withDataLock(() => {
+    const db = readDB();
+    const purchase: GiftPurchase = {
+      id: `purchase_${Date.now()}`,
+      title,
+      description,
+      category,
+      photoUrl: photoUrl || "",
+      buyer,
+      price: price || "",
+      timestamp: new Date().toISOString()
+    };
+    db.giftPurchases.unshift(purchase);
+    writeDB(db);
+    return purchase;
+  });
   res.json(newPurchase);
 });
 
-app.delete("/api/gift-purchases/:id", (req: Request, res: Response) => {
+app.delete("/api/gift-purchases/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = readDB();
-  db.giftPurchases = db.giftPurchases.filter(p => p.id !== id);
-  writeDB(db);
+  await withDataLock(() => {
+    const db = readDB();
+    db.giftPurchases = db.giftPurchases.filter(p => p.id !== id);
+    writeDB(db);
+  });
   res.json({ success: true, message: "Purchase deleted successfully" });
 });
 
 
 // 11. Period Tracker Bulk Import (Task 3)
-app.post("/api/period/import", (req: Request, res: Response) => {
+app.post("/api/period/import", async (req: Request, res: Response) => {
   const { logs, config } = req.body;
   if (!Array.isArray(logs)) {
      res.status(400).json({ error: "Logs payload must be an array of daily states list." });
      return;
   }
-  
-  const cycleDb = readCycleDB();
-  let mergedCount = 0;
 
-  logs.forEach((importedLog) => {
-    if (!importedLog.date) return;
-    const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === importedLog.date);
-    const logItem: CycleLog = {
-      id: importedLog.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      date: importedLog.date,
-      symptoms: Array.isArray(importedLog.symptoms) ? importedLog.symptoms : [],
-      moods: Array.isArray(importedLog.moods) ? importedLog.moods : [],
-      intimacyLevel: importedLog.intimacyLevel || "None",
-      notes: importedLog.notes || "",
-      flow: importedLog.flow || "None",
-      temperature: importedLog.temperature !== undefined && importedLog.temperature !== null && importedLog.temperature !== "" ? Number(importedLog.temperature) : undefined,
-      weight: importedLog.weight !== undefined && importedLog.weight !== null && importedLog.weight !== "" ? Number(importedLog.weight) : undefined,
-      waterIntake: importedLog.waterIntake !== undefined && importedLog.waterIntake !== null && importedLog.waterIntake !== "" ? Number(importedLog.waterIntake) : undefined,
-      sleepDuration: importedLog.sleepDuration !== undefined && importedLog.sleepDuration !== null && importedLog.sleepDuration !== "" ? Number(importedLog.sleepDuration) : undefined,
-      sex: importedLog.sex || "None"
-    };
+  const result = await withDataLock(() => {
+    const cycleDb = readCycleDB();
+    let mergedCount = 0;
 
-    if (existingIndex !== -1) {
-      cycleDb.cycleLogs[existingIndex] = logItem;
-    } else {
-      cycleDb.cycleLogs.push(logItem);
+    logs.forEach((importedLog) => {
+      if (!importedLog.date) return;
+      const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === importedLog.date);
+      const logItem: CycleLog = {
+        id: importedLog.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        date: importedLog.date,
+        symptoms: Array.isArray(importedLog.symptoms) ? importedLog.symptoms : [],
+        moods: Array.isArray(importedLog.moods) ? importedLog.moods : [],
+        intimacyLevel: importedLog.intimacyLevel || "None",
+        notes: importedLog.notes || "",
+        flow: importedLog.flow || "None",
+        temperature: importedLog.temperature !== undefined && importedLog.temperature !== null && importedLog.temperature !== "" ? Number(importedLog.temperature) : undefined,
+        weight: importedLog.weight !== undefined && importedLog.weight !== null && importedLog.weight !== "" ? Number(importedLog.weight) : undefined,
+        waterIntake: importedLog.waterIntake !== undefined && importedLog.waterIntake !== null && importedLog.waterIntake !== "" ? Number(importedLog.waterIntake) : undefined,
+        sleepDuration: importedLog.sleepDuration !== undefined && importedLog.sleepDuration !== null && importedLog.sleepDuration !== "" ? Number(importedLog.sleepDuration) : undefined,
+        sex: importedLog.sex || "None"
+      };
+
+      if (existingIndex !== -1) {
+        cycleDb.cycleLogs[existingIndex] = logItem;
+      } else {
+        cycleDb.cycleLogs.push(logItem);
+      }
+      mergedCount++;
+    });
+
+    // Sort chronologically descending
+    cycleDb.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    if (config) {
+      if (config.lastPeriodDate) cycleDb.periodConfig.lastPeriodDate = config.lastPeriodDate;
+      if (config.cycleLength) cycleDb.periodConfig.cycleLength = Number(config.cycleLength);
+      if (config.periodLength) cycleDb.periodConfig.periodLength = Number(config.periodLength);
+      if (config.pregnancyMode !== undefined) cycleDb.periodConfig.pregnancyMode = !!config.pregnancyMode;
+      if (config.pregnancyStartDate !== undefined) cycleDb.periodConfig.pregnancyStartDate = config.pregnancyStartDate;
     }
-    mergedCount++;
+
+    writeCycleDB(cycleDb);
+    return { count: mergedCount, periodConfig: cycleDb.periodConfig, logsCount: cycleDb.cycleLogs.length };
   });
 
-  // Sort chronologically descending
-  cycleDb.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  if (config) {
-    if (config.lastPeriodDate) cycleDb.periodConfig.lastPeriodDate = config.lastPeriodDate;
-    if (config.cycleLength) cycleDb.periodConfig.cycleLength = Number(config.cycleLength);
-    if (config.periodLength) cycleDb.periodConfig.periodLength = Number(config.periodLength);
-    if (config.pregnancyMode !== undefined) cycleDb.periodConfig.pregnancyMode = !!config.pregnancyMode;
-    if (config.pregnancyStartDate !== undefined) cycleDb.periodConfig.pregnancyStartDate = config.pregnancyStartDate;
-  }
-
-  writeCycleDB(cycleDb);
-  res.json({ success: true, count: mergedCount, periodConfig: cycleDb.periodConfig, logsCount: cycleDb.cycleLogs.length });
+  res.json({ success: true, ...result });
 });
 
 
@@ -903,56 +1038,60 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
 
       if (response && response.text) {
         const parsedData = JSON.parse(response.text.trim());
-        const cycleDb = readCycleDB();
-        
-        const logs = parsedData.logs || [];
-        const config = parsedData.periodConfig;
-        
-        let mergedCount = 0;
-        logs.forEach((importedLog: any) => {
-          if (!importedLog.date) return;
-          const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === importedLog.date);
-          const logItem: CycleLog = {
-            id: importedLog.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            date: importedLog.date,
-            symptoms: Array.isArray(importedLog.symptoms) ? importedLog.symptoms : [],
-            moods: Array.isArray(importedLog.moods) ? importedLog.moods : [],
-            intimacyLevel: importedLog.intimacyLevel || "None",
-            notes: importedLog.notes || "",
-            flow: importedLog.flow || "None",
-            temperature: importedLog.temperature !== undefined ? Number(importedLog.temperature) : undefined,
-            weight: importedLog.weight !== undefined ? Number(importedLog.weight) : undefined,
-            waterIntake: importedLog.waterIntake !== undefined ? Number(importedLog.waterIntake) : undefined,
-            sleepDuration: importedLog.sleepDuration !== undefined ? Number(importedLog.sleepDuration) : undefined,
-            sex: importedLog.sex || "None"
-          };
 
-          if (existingIndex !== -1) {
-            cycleDb.cycleLogs[existingIndex] = logItem;
-          } else {
-            cycleDb.cycleLogs.push(logItem);
+        const result = await withDataLock(() => {
+          const cycleDb = readCycleDB();
+
+          const logs = parsedData.logs || [];
+          const config = parsedData.periodConfig;
+
+          let mergedCount = 0;
+          logs.forEach((importedLog: any) => {
+            if (!importedLog.date) return;
+            const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === importedLog.date);
+            const logItem: CycleLog = {
+              id: importedLog.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              date: importedLog.date,
+              symptoms: Array.isArray(importedLog.symptoms) ? importedLog.symptoms : [],
+              moods: Array.isArray(importedLog.moods) ? importedLog.moods : [],
+              intimacyLevel: importedLog.intimacyLevel || "None",
+              notes: importedLog.notes || "",
+              flow: importedLog.flow || "None",
+              temperature: importedLog.temperature !== undefined ? Number(importedLog.temperature) : undefined,
+              weight: importedLog.weight !== undefined ? Number(importedLog.weight) : undefined,
+              waterIntake: importedLog.waterIntake !== undefined ? Number(importedLog.waterIntake) : undefined,
+              sleepDuration: importedLog.sleepDuration !== undefined ? Number(importedLog.sleepDuration) : undefined,
+              sex: importedLog.sex || "None"
+            };
+
+            if (existingIndex !== -1) {
+              cycleDb.cycleLogs[existingIndex] = logItem;
+            } else {
+              cycleDb.cycleLogs.push(logItem);
+            }
+            mergedCount++;
+          });
+
+          // Sort chronologically descending
+          cycleDb.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+          if (config) {
+            if (config.lastPeriodDate) cycleDb.periodConfig.lastPeriodDate = config.lastPeriodDate;
+            if (config.cycleLength) cycleDb.periodConfig.cycleLength = Number(config.cycleLength);
+            if (config.periodLength) cycleDb.periodConfig.periodLength = Number(config.periodLength);
           }
-          mergedCount++;
+
+          writeCycleDB(cycleDb);
+
+          return {
+            count: mergedCount,
+            periodConfig: cycleDb.periodConfig,
+            logsCount: cycleDb.cycleLogs.length,
+            extractedLogs: logs
+          };
         });
 
-        // Sort chronologically descending
-        cycleDb.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-        if (config) {
-          if (config.lastPeriodDate) cycleDb.periodConfig.lastPeriodDate = config.lastPeriodDate;
-          if (config.cycleLength) cycleDb.periodConfig.cycleLength = Number(config.cycleLength);
-          if (config.periodLength) cycleDb.periodConfig.periodLength = Number(config.periodLength);
-        }
-
-        writeCycleDB(cycleDb);
-
-        res.json({
-          success: true,
-          count: mergedCount,
-          periodConfig: cycleDb.periodConfig,
-          logsCount: cycleDb.cycleLogs.length,
-          extractedLogs: logs
-        });
+        res.json({ success: true, ...result });
         return;
       }
     } catch (err: any) {
@@ -964,11 +1103,9 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
 
   // Robust, beautiful, realistic mock parser fallback when GEMINI_API_KEY is not assigned
   try {
-    const cycleDb = readCycleDB();
     const today = new Date();
-    
+
     // Create realistic parsed cycle items
-    const generatedLogs: CycleLog[] = [];
     const generatedConfig = {
       lastPeriodDate: new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       cycleLength: 28,
@@ -978,6 +1115,7 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
     };
 
     // Synthesize logs for past period started 14 days ago
+    const generatedLogs: CycleLog[] = [];
     for (let i = 0; i < 5; i++) {
       const logDate = new Date(today.getTime() - (14 - i) * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
       generatedLogs.push({
@@ -996,25 +1134,34 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
       });
     }
 
-    generatedLogs.forEach((mockLog) => {
-      const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === mockLog.date);
-      if (existingIndex !== -1) {
-        cycleDb.cycleLogs[existingIndex] = mockLog;
-      } else {
-        cycleDb.cycleLogs.push(mockLog);
-      }
-    });
+    const result = await withDataLock(() => {
+      const cycleDb = readCycleDB();
 
-    cycleDb.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    cycleDb.periodConfig = generatedConfig;
-    
-    writeCycleDB(cycleDb);
+      generatedLogs.forEach((mockLog) => {
+        const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === mockLog.date);
+        if (existingIndex !== -1) {
+          cycleDb.cycleLogs[existingIndex] = mockLog;
+        } else {
+          cycleDb.cycleLogs.push(mockLog);
+        }
+      });
+
+      cycleDb.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      cycleDb.periodConfig = generatedConfig;
+
+      writeCycleDB(cycleDb);
+
+      return {
+        periodConfig: cycleDb.periodConfig,
+        logsCount: cycleDb.cycleLogs.length
+      };
+    });
 
     res.json({
       success: true,
       count: generatedLogs.length,
-      periodConfig: cycleDb.periodConfig,
-      logsCount: cycleDb.cycleLogs.length,
+      periodConfig: result.periodConfig,
+      logsCount: result.logsCount,
       extractedLogs: generatedLogs,
       simulated: true
     });
@@ -1296,71 +1443,84 @@ app.post("/api/kitchen/generate", async (req: Request, res: Response) => {
 });
 
 // 14. Save Selected Recipe to Ledger
-app.post("/api/kitchen/save", (req: Request, res: Response) => {
+app.post("/api/kitchen/save", async (req: Request, res: Response) => {
   const { title, description, ingredients, instructions, phase, hasEggs, notes } = req.body;
   if (!title || !ingredients || !instructions) {
     res.status(400).json({ error: "Missing required recipe fields." });
     return;
   }
 
-  const db = readDB();
-  const newDish = {
-    id: `dish_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-    title,
-    description,
-    ingredients,
-    instructions,
-    phase,
-    hasEggs,
-    notes: notes || "",
-    rating: 5, // Default maximum love rating
-    timestamp: new Date().toISOString()
-  };
+  const newDish = await withDataLock(() => {
+    const db = readDB();
+    const dish = {
+      id: `dish_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      title,
+      description,
+      ingredients,
+      instructions,
+      phase,
+      hasEggs,
+      notes: notes || "",
+      rating: 5, // Default maximum love rating
+      timestamp: new Date().toISOString()
+    };
 
-  db.kitchenDishes = db.kitchenDishes || [];
-  db.kitchenDishes.unshift(newDish);
-  writeDB(db);
+    db.kitchenDishes = db.kitchenDishes || [];
+    db.kitchenDishes.unshift(dish);
+    writeDB(db);
+    return dish;
+  });
 
   res.json(newDish);
 });
 
 // 15. Delete Recipe from Ledger
-app.delete("/api/kitchen/:id", (req: Request, res: Response) => {
+app.delete("/api/kitchen/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = readDB();
-  db.kitchenDishes = (db.kitchenDishes || []).filter(d => d.id !== id);
-  writeDB(db);
+  await withDataLock(() => {
+    const db = readDB();
+    db.kitchenDishes = (db.kitchenDishes || []).filter(d => d.id !== id);
+    writeDB(db);
+  });
   res.json({ success: true, message: "Dish removed successfully" });
 });
 
 // 16. Update Cooking Memory Notes
-app.post("/api/kitchen/notes/:id", (req: Request, res: Response) => {
+app.post("/api/kitchen/notes/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
   const { notes } = req.body;
-  const db = readDB();
-  const index = (db.kitchenDishes || []).findIndex(d => d.id === id);
-  if (index === -1) {
+  const result = await withDataLock(() => {
+    const db = readDB();
+    const index = (db.kitchenDishes || []).findIndex(d => d.id === id);
+    if (index === -1) return null;
+    db.kitchenDishes![index].notes = notes;
+    writeDB(db);
+    return db.kitchenDishes![index];
+  });
+  if (!result) {
     res.status(404).json({ error: "Dish not found" });
     return;
   }
-  db.kitchenDishes![index].notes = notes;
-  writeDB(db);
-  res.json(db.kitchenDishes![index]);
+  res.json(result);
 });
 
 // 17. Update Cooking Memory Love Rating (Hearts)
-app.post("/api/kitchen/rating/:id", (req: Request, res: Response) => {
+app.post("/api/kitchen/rating/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
   const { rating } = req.body;
-  const db = readDB();
-  const index = (db.kitchenDishes || []).findIndex(d => d.id === id);
-  if (index === -1) {
+  const result = await withDataLock(() => {
+    const db = readDB();
+    const index = (db.kitchenDishes || []).findIndex(d => d.id === id);
+    if (index === -1) return null;
+    db.kitchenDishes![index].rating = Number(rating);
+    writeDB(db);
+    return db.kitchenDishes![index];
+  });
+  if (!result) {
     res.status(404).json({ error: "Dish not found" });
     return;
   }
-  db.kitchenDishes![index].rating = Number(rating);
-  writeDB(db);
-  res.json(db.kitchenDishes![index]);
+  res.json(result);
 });
 
 

@@ -34,11 +34,20 @@ export default function WickedChamber({ challengesHistory, onGenerate, isLoading
     }, 1200);
   };
 
+  const [copyFailed, setCopyFailed] = useState(false);
+
   const handleCopy = () => {
     if (!currentChallenge) return;
-    navigator.clipboard.writeText(`${currentChallenge.description}\n${currentChallenge.howTo}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard.writeText(`${currentChallenge.description}\n${currentChallenge.howTo}`)
+      .then(() => {
+        setCopied(true);
+        setCopyFailed(false);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        setCopyFailed(true);
+        setTimeout(() => setCopyFailed(false), 2500);
+      });
   };
 
   const handleRate = (id: string, stars: number) => {
@@ -195,6 +204,9 @@ export default function WickedChamber({ challengesHistory, onGenerate, isLoading
                   </div>
 
                   <div className="flex items-center gap-2 shadow-sm">
+                    {copyFailed && (
+                      <span className="text-[10px] text-red-400 font-mono">Copy failed</span>
+                    )}
                     <button
                       onClick={handleCopy}
                       className="p-2 rounded-xl bg-luxury-900 border border-luxury-800 text-neutral-400 hover:text-white transition active:scale-95 cursor-pointer"

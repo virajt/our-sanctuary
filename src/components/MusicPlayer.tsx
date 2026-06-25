@@ -93,6 +93,7 @@ export default function MusicPlayer() {
   const oscsRef = useRef<OscillatorNode[]>([]);
   const filtersRef = useRef<BiquadFilterNode[]>([]);
   const animFrameIdRef = useRef<number | null>(null);
+  const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentTrack = SECTIONS_TRACKS[currentTrackIndex];
 
@@ -115,8 +116,9 @@ export default function MusicPlayer() {
     });
     oscsRef.current = [];
     filtersRef.current = [];
-    if ((window as any).heartbeatTimer) {
-      try { clearInterval((window as any).heartbeatTimer); } catch(e) {}
+    if (heartbeatTimerRef.current) {
+      clearInterval(heartbeatTimerRef.current);
+      heartbeatTimerRef.current = null;
     }
   };
 
@@ -234,7 +236,7 @@ export default function MusicPlayer() {
       };
 
       const beatInterval = setInterval(pulseFunc, 1400);
-      (window as any).heartbeatTimer = beatInterval;
+      heartbeatTimerRef.current = beatInterval;
 
       const bufferSize = ctx.sampleRate * 2;
       const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -358,36 +360,59 @@ export default function MusicPlayer() {
       if (curatedAudioRef.current) {
         curatedAudioRef.current.pause();
       }
+      // Fully release the AudioContext's OS-level audio resources on
+      // unmount - stopping oscillators alone leaves the context (and its
+      // underlying audio device handle) open indefinitely.
+      if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
+        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
+      }
     };
   }, []);
 
   // Spotify Parser
+  const [spotifyParseError, setSpotifyParseError] = useState("");
   const handleSpotifyConnect = (e: React.FormEvent) => {
     e.preventDefault();
     if (!spotifyUrl.trim()) return;
+    setSpotifyParseError("");
 
+    // Only ever build embed URLs from recognized open.spotify.com links.
+    // Never fall back to using the raw pasted text as an iframe src - that
+    // would let any arbitrary URL (including non-Spotify pages) load inside
+    // the app's iframe.
+    let host = "";
     try {
-      let embedUrlComp = "https://open.spotify.com/embed/playlist/37i9dQZF1DX4t8667S6K7e";
-      
-      // Parse track
-      const matchTrack = spotifyUrl.match(/track\/([a-zA-Z0-9]+)/);
-      if (matchTrack && matchTrack[1]) {
-        embedUrlComp = `https://open.spotify.com/embed/track/${matchTrack[1].split('?')[0]}`;
-      } else {
-        // Parse playlist
-        const matchPlaylist = spotifyUrl.match(/playlist\/([a-zA-Z0-9]+)/);
-        if (matchPlaylist && matchPlaylist[1]) {
-          embedUrlComp = `https://open.spotify.com/embed/playlist/${matchPlaylist[1].split('?')[0]}`;
-        } else {
-          // Fallback direct
-          embedUrlComp = spotifyUrl;
-        }
-      }
-      setSpotifyEmbedUrl(embedUrlComp);
-      setSpotifyUrl("");
-    } catch(err) {
-      console.error("Invalid Spotify URL: ", err);
+      host = new URL(spotifyUrl).hostname;
+    } catch {
+      setSpotifyParseError("That doesn't look like a valid URL.");
+      return;
     }
+    if (host !== "open.spotify.com") {
+      setSpotifyParseError("Please paste a link from open.spotify.com (track, album, or playlist).");
+      return;
+    }
+
+    const matchTrack = spotifyUrl.match(/\/track\/([a-zA-Z0-9]+)/);
+    const matchAlbum = spotifyUrl.match(/\/album\/([a-zA-Z0-9]+)/);
+    const matchPlaylist = spotifyUrl.match(/\/playlist\/([a-zA-Z0-9]+)/);
+
+    let embedUrlComp: string | null = null;
+    if (matchTrack && matchTrack[1]) {
+      embedUrlComp = `https://open.spotify.com/embed/track/${matchTrack[1]}`;
+    } else if (matchAlbum && matchAlbum[1]) {
+      embedUrlComp = `https://open.spotify.com/embed/album/${matchAlbum[1]}`;
+    } else if (matchPlaylist && matchPlaylist[1]) {
+      embedUrlComp = `https://open.spotify.com/embed/playlist/${matchPlaylist[1]}`;
+    }
+
+    if (!embedUrlComp) {
+      setSpotifyParseError("Couldn't find a track, album, or playlist ID in that link.");
+      return;
+    }
+
+    setSpotifyEmbedUrl(embedUrlComp);
+    setSpotifyUrl("");
   };
 
   // Visualizer Animation for Canvas
@@ -657,6 +682,10 @@ export default function MusicPlayer() {
               Sync Custom Playlist
             </button>
           </form>
+
+          {spotifyParseError && (
+            <p className="text-[11px] text-red-400 px-1">{spotifyParseError}</p>
+          )}
 
           {/* Description message */}
           <div className="p-3 bg-rose-950/15 border border-rose-900/20 rounded-xl flex items-start gap-2">

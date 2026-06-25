@@ -26,6 +26,12 @@ export default function DateRemindersView({ dates, onAddDate, onDeleteDate }: Da
 
       // Parse current year target
       const [, month, day] = targetDateStr.split("-").map(Number);
+      if (!Number.isFinite(month) || !Number.isFinite(day)) {
+        // Malformed date string - without this guard, NaN would silently
+        // propagate through the math below and the reminder would just
+        // vanish from the "upcoming" list with no visible error.
+        return Infinity;
+      }
       const targetThisYear = new Date(today.getFullYear(), month - 1, day);
       
       if (targetThisYear.getTime() < today.getTime()) {
@@ -38,7 +44,7 @@ export default function DateRemindersView({ dates, onAddDate, onDeleteDate }: Da
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       }
     } catch (e) {
-      return 0;
+      return Infinity;
     }
   };
 
@@ -342,7 +348,11 @@ export default function DateRemindersView({ dates, onAddDate, onDeleteDate }: Da
                     )}
 
                     <button
-                      onClick={() => onDeleteDate(dt.id)}
+                      onClick={() => {
+                        if (confirm(`Remove the reminder for "${dt.title}"?`)) {
+                          onDeleteDate(dt.id);
+                        }
+                      }}
                       className="p-1.5 rounded-xl border border-luxury-800 hover:border-red-500/30 text-neutral-500 hover:text-red-400 transition"
                       title="Deactivate Reminder"
                     >

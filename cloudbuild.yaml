@@ -10,8 +10,21 @@ steps:
       - '--region'
       - 'australia-southeast1'
       - '--allow-unauthenticated'
-      - '--set-env-vars'
+      - '--update-env-vars'
       - 'GEMINI_API_KEY=${_GEMINI_KEY}'
+      # Runtime auth vars (GOOGLE_CLIENT_ID, ALLOWED_EMAILS, SESSION_SECRET)
+      # are managed directly on the Cloud Run service via the console
+      # ("Edit & Deploy New Revision" -> Variables & Secrets). We deliberately
+      # use --update-env-vars (not --set-env-vars) above so this file only
+      # ever touches GEMINI_API_KEY and never wipes those other variables -
+      # --set-env-vars is destructive and deletes any existing runtime
+      # variable not explicitly listed in it, which would otherwise silently
+      # break sign-in on every build. GOOGLE_CLIENT_ID below is passed
+      # separately as a *build-time* value only, since Vite needs it during
+      # `npm run build` to embed it in the frontend bundle (see
+      # SETUP_GOOGLE_AUTH.md, step 3) - it is unrelated to the runtime copy.
+      - '--update-build-env-vars'
+      - 'GOOGLE_CLIENT_ID=${_GOOGLE_CLIENT_ID}'
       - '--add-volume'
       - 'name=db-volume,type=cloud-storage,bucket=the-parent-500004-sanctuary-data'
       - '--add-volume-mount'
@@ -23,3 +36,4 @@ options:
   logging: CLOUD_LOGGING_ONLY
 substitutions:
   _GEMINI_KEY: ''
+  _GOOGLE_CLIENT_ID: ''

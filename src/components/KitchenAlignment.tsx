@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { KitchenDish, CyclePhase } from "../types";
+import { apiFetch } from "../lib/apiFetch";
 import { Utensils, Egg, Sparkles, Heart, Clock, Trash2, Calendar, BookOpen, ChefHat, Plus, CircleCheck, Info, Smile } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -73,7 +74,7 @@ export default function KitchenAlignment({
     setCheckedIngredients({});
     
     try {
-      const response = await fetch("/api/kitchen/generate", {
+      const response = await apiFetch("/api/kitchen/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -537,7 +538,11 @@ export default function KitchenAlignment({
                     Logged: {new Date(dish.timestamp).toLocaleDateString()}
                   </div>
                   <button
-                    onClick={() => onDeleteDish(dish.id)}
+                    onClick={() => {
+                      if (confirm(`Remove "${dish.title}" from your recipe ledger?`)) {
+                        onDeleteDish(dish.id);
+                      }
+                    }}
                     className="p-1 rounded-lg border border-transparent hover:border-red-900/40 text-neutral-600 hover:text-red-400 transition"
                     title="Delete recipe from logs"
                   >

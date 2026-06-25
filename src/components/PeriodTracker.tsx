@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { apiFetch } from "../lib/apiFetch";
 import { PeriodConfig, CycleLog, CyclePhase, PhaseProtocol } from "../types";
 import { 
   Calendar, Brain, Heart, Sparkles, Utensils, Plus, Lock, 
@@ -155,6 +156,18 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
   const [pregnancyMode, setPregnancyMode] = useState(config.pregnancyMode || false);
   const [pregnancyStartDate, setPregnancyStartDate] = useState(config.pregnancyStartDate || config.lastPeriodDate);
 
+  // Keep the edit form in sync with the server. Without this, if config
+  // changes elsewhere (the other partner edits it, or a PDF import updates
+  // it) while this component is mounted, the form would keep showing the
+  // old values - and saving it would silently overwrite the newer data.
+  useEffect(() => {
+    setEditDate(config.lastPeriodDate);
+    setEditCycle(config.cycleLength);
+    setEditPeriod(config.periodLength);
+    setPregnancyMode(config.pregnancyMode || false);
+    setPregnancyStartDate(config.pregnancyStartDate || config.lastPeriodDate);
+  }, [config.lastPeriodDate, config.cycleLength, config.periodLength, config.pregnancyMode, config.pregnancyStartDate]);
+
   // PDF & Screenshot AI analysis state
   const [showPdfImport, setShowPdfImport] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -200,7 +213,19 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
     }
   };
 
+  const MAX_IMPORT_FILE_SIZE_MB = 15;
+
   const processFile = (file: File) => {
+    const isAcceptedType = file.type === "application/pdf" || file.type.startsWith("image/");
+    if (!isAcceptedType) {
+      setUploadError("Please upload a PDF or screenshot image (PNG/JPG).");
+      return;
+    }
+    if (file.size > MAX_IMPORT_FILE_SIZE_MB * 1024 * 1024) {
+      setUploadError(`That file is too large (max ${MAX_IMPORT_FILE_SIZE_MB}MB). Try a smaller export or a cropped screenshot.`);
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = async (event) => {
       const base64Data = event.target?.result as string;
@@ -211,14 +236,14 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
       setUploadSuccess(false);
 
       try {
-        const res = await fetch("/api/period/import-pdf", {
+        const res = await apiFetch("/api/period/import-pdf", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pdfData: base64Data })
         });
 
         if (!res.ok) {
-          const errData = await res.json();
+          const errData = await res.json().catch(() => ({}));
           throw new Error(errData.error || "Failed to process cycle document");
         }
 
@@ -356,9 +381,19 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
     const today = new Date();
     const diffTime = today.getTime() - lastDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    // Guard against corrupt/zero cycle length (e.g. from a bad import) -
+    // dividing or modulo-ing by 0 would otherwise produce NaN everywhere
+    // downstream in the UI with no clear error.
+    const safeCycleLength = config.cycleLength > 0 ? config.cycleLength : 28;
     
     // wrap around in case user is over cycle bounds
-    const currentDayOfCycle = (diffDays % config.cycleLength) + 1;
+    // (use a proper positive modulo - JS's % can return negative results
+    // when diffDays is negative, e.g. if lastPeriodDate is set in the
+    // future by mistake, which would otherwise silently show a nonsensical
+    // negative or zero cycle day)
+    const positiveMod = (n: number, m: number) => ((n % m) + m) % m;
+    const currentDayOfCycle = positiveMod(diffDays, safeCycleLength) + 1;
     
     // Determine active phase
     let activePhase: CyclePhase = "Luteal";
@@ -372,10 +407,10 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
       activePhase = "Luteal";
     }
 
-    const daysUntilNextPeriod = config.cycleLength - currentDayOfCycle + 1;
+    const daysUntilNextPeriod = safeCycleLength - currentDayOfCycle + 1;
     
     // Fertile Window Calculations
-    const ovulationDayOfCycle = config.cycleLength - 14;
+    const ovulationDayOfCycle = safeCycleLength - 14;
     const fertileWindowStart = ovulationDayOfCycle - 5;
     const fertileWindowEnd = ovulationDayOfCycle;
     
@@ -390,7 +425,7 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
       currentDayOfCycle,
       activePhase,
       daysUntilNextPeriod,
-      percentage: (currentDayOfCycle / config.cycleLength) * 100,
+      percentage: (currentDayOfCycle / safeCycleLength) * 100,
       pregnancyWeeks: 0,
       pregnancyDays: 0,
       dueDate: "",

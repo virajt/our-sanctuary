@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { VaultPhoto, PhotoCameraPrompt } from "../types";
-import { Lock, Unlock, Eye, Sparkles, Image, Check, Plus, Upload, Trash2, Camera, Shield, EyeOff, Calendar } from "lucide-react";
+import { Unlock, Sparkles, Image, Check, Plus, Upload, Trash2, Camera, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface PrivateGalleryProps {
@@ -12,12 +12,6 @@ interface PrivateGalleryProps {
 }
 
 export default function PrivateGallery({ photos, onGeneratePrompt, onUploadPhoto, onDeletePhoto, isLoading }: PrivateGalleryProps) {
-  // Vault protection state
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [passphrase, setPassphrase] = useState("");
-  const [authError, setAuthError] = useState("");
-  const [showPassRaw, setShowPassRaw] = useState(false);
-
   // Dynamic Prompt states
   const [target, setTarget] = useState<"Command Him" | "Command Her" | "Together">("Together");
   const [currentPrompt, setCurrentPrompt] = useState<PhotoCameraPrompt | null>(null);
@@ -27,17 +21,6 @@ export default function PrivateGallery({ photos, onGeneratePrompt, onUploadPhoto
   const [uploadLoading, setUploadLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-
-  const handleUnlock = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Playful, easy passphrase to lock/protect private memories from basic previews
-    if (passphrase.toLowerCase() === "sanctuary" || passphrase === "1234") {
-      setIsUnlocked(true);
-      setAuthError("");
-    } else {
-      setAuthError("Incorrect key code pin. Try 'sanctuary' or '1234' for playful test.");
-    }
-  };
 
   const handleFetchPrompt = async () => {
     setIsGeneratingPrompt(true);
@@ -106,72 +89,19 @@ export default function PrivateGallery({ photos, onGeneratePrompt, onUploadPhoto
 
   return (
     <div id="private-gallery-module" className="space-y-8">
-      
-      {/* 1. LOBBY GATE: Secure entry lockpad */}
-      <AnimatePresence mode="wait">
-        {!isUnlocked ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            className="max-w-md mx-auto bg-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden"
-            key="lockbox"
-          >
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-900 via-red-800 to-red-900" />
-            <div className="text-center space-y-4 mb-8">
-              <div className="mx-auto w-16 h-16 rounded-full bg-luxury-950/80 border border-luxury-800 flex items-center justify-center text-red-400 shadow-md">
-                <Lock className="w-8 h-8 animate-pulse" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-serif text-2xl font-light text-white tracking-wider">Unseal Private Vault</h3>
-                <p className="text-xs text-neutral-400 max-w-xs mx-auto leading-relaxed">
-                  The Sanctuary Vault contains your private, sensual photography logs. Enter your couple's passcode to unlock.
-                </p>
-                <p className="text-[10px] text-gray-500 font-mono">Hint: Enter 'sanctuary' or '1234'</p>
-              </div>
-            </div>
 
-            <form onSubmit={handleUnlock} className="space-y-4">
-              <div className="relative">
-                <input
-                  type={showPassRaw ? "text" : "password"}
-                  placeholder="Enter secret passcode..."
-                  value={passphrase}
-                  onChange={(e) => setPassphrase(e.target.value)}
-                  className="w-full bg-luxury-950 border border-luxury-800 focus:border-red-800 rounded-xl px-4 py-3 text-sm text-center text-red-200 tracking-widest focus:outline-none transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassRaw(!showPassRaw)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300"
-                >
-                  {showPassRaw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-
-              {authError && (
-                <p className="text-[11px] text-red-400 text-center font-medium">{authError}</p>
-              )}
-
-              <button
-                type="submit"
-                className="w-full py-3 bg-gradient-to-r from-red-950 to-red-900 text-red-400 rounded-xl font-bold text-xs uppercase tracking-wider border border-red-800/40 glow-red transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Shield className="w-4 h-4" />
-                Authenticate Vault
-              </button>
-            </form>
-          </motion.div>
-        ) : (
-          
-          /* 2. UNLOCKED: Camera Prompt and Private Photo Log view */
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-8"
-            key="unlocked-vault"
-          >
-            {/* Header with Lock operation */}
+      {/* Camera Prompt and Private Photo Log view.
+          (Access to this whole tab is already gated by the Gallery lock in
+          App.tsx, which sits on top of the real security boundary - the
+          Google Sign-In session checked server-side on every API call. An
+          additional hardcoded passphrase here would be redundant and, since
+          this is open-source, visible to anyone reading the code anyway.) */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-8"
+      >
+            {/* Header */}
             <div className="bg-white/[0.02] backdrop-blur-xl p-6 rounded-3xl border border-white/10 flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="space-y-1">
                 <h2 className="font-serif text-3xl font-medium tracking-wide text-white flex items-center gap-3">
@@ -182,17 +112,6 @@ export default function PrivateGallery({ photos, onGeneratePrompt, onUploadPhoto
                   Generate romantic camera configurations, take the photo, and let AI analyze the memory.
                 </p>
               </div>
-
-              <button
-                onClick={() => {
-                  setIsUnlocked(false);
-                  setPassphrase("");
-                }}
-                className="px-4 py-2 bg-luxury-950 border border-luxury-800 hover:border-red-500/40 text-neutral-400 hover:text-red-400 rounded-xl text-xs flex items-center gap-2 transition"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                Re-seal Vault
-              </button>
             </div>
 
             {/* Prompt Generator and Image Upload zone */}
@@ -418,9 +337,7 @@ export default function PrivateGallery({ photos, onGeneratePrompt, onUploadPhoto
               )}
             </div>
 
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </motion.div>
 
     </div>
   );

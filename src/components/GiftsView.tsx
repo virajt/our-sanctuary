@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { SensoryGift } from "../types";
+import { apiFetch } from "../lib/apiFetch";
 import { Gift, Heart, Sparkles, CheckCircle2, ChevronRight, Flame, Plus, Trash2, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -26,7 +27,7 @@ export default function GiftsView({ gifts, onClaim, onRedeem, onAddGift, onDelet
   const handleGenerateAI = async () => {
     setIsGenerating(true);
     try {
-      const response = await fetch("/api/gifts/generate", {
+      const response = await apiFetch("/api/gifts/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ category: newCat, receiver: newReceiver }),
@@ -294,7 +295,11 @@ export default function GiftsView({ gifts, onClaim, onRedeem, onAddGift, onDelet
                   {/* Custom item Trash */}
                   {gift.custom && (
                     <button
-                      onClick={() => onDeleteCustom(gift.id)}
+                      onClick={() => {
+                        if (confirm("Delete this custom gift permanently?")) {
+                          onDeleteCustom(gift.id);
+                        }
+                      }}
                       className="p-1.5 rounded-xl border border-luxury-800 hover:border-red-500/40 text-neutral-500 hover:text-red-400 transition"
                       title="Delete Custom Gift"
                     >

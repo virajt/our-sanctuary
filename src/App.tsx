@@ -9,7 +9,10 @@ import AdminPanel from "./components/AdminPanel";
 import DateRemindersView from "./components/DateRemindersView";
 import GiftPurchasesView from "./components/GiftPurchasesView";
 import KitchenAlignment from "./components/KitchenAlignment";
-import { Gift, Flame, Shield, Calendar, Settings, Sparkles, Heart, Bell, Tag, Utensils, Lock, Unlock, Eye, EyeOff, ShieldAlert, KeyRound } from "lucide-react";
+import GoogleSignIn from "./components/GoogleSignIn";
+import { useAuth } from "./hooks/useAuth";
+import { apiFetch } from "./lib/apiFetch";
+import { Gift, Flame, Shield, Calendar, Settings, Sparkles, Heart, Bell, Tag, Utensils, Lock, Eye, EyeOff, KeyRound, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
@@ -17,14 +20,10 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [db, setDb] = useState<SanctuaryDB | null>(null);
 
-  // Password verification states
-  const [isSanctuaryUnlocked, setIsSanctuaryUnlocked] = useState<boolean>(() => {
-    return localStorage.getItem("sanctuary_main_unlocked") === "true";
-  });
-  const [mainPasswordInput, setMainPasswordInput] = useState("");
-  const [mainError, setMainError] = useState("");
-  const [showMainPassword, setShowMainPassword] = useState(false);
+  // Real, server-verified authentication (Google Sign-In + GCP email whitelist)
+  const { user: authUser, isCheckingSession, authError, signInWithGoogle, signOut } = useAuth();
 
+  // Secondary in-app locks (defense in depth, layered on top of the Google gate)
   const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(() => {
     return localStorage.getItem("sanctuary_admin_unlocked") === "true";
   });
@@ -39,19 +38,10 @@ export default function App() {
   const [galleryError, setGalleryError] = useState("");
   const [showGalleryPassword, setShowGalleryPassword] = useState(false);
 
-  // Verifiers
-  const handleVerifyMainPassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (mainPasswordInput.trim() === "trust") {
-      setIsSanctuaryUnlocked(true);
-      localStorage.setItem("sanctuary_main_unlocked", "true");
-      setMainError("");
-    } else {
-      setMainError("Passphrase alignment failed. The sanctuary remains sealed.");
-      setMainPasswordInput("");
-    }
-  };
-
+  // Verifiers (secondary PIN gates only - these are NOT the real security boundary
+  // anymore. The real boundary is the server checking the Google session against
+  // ALLOWED_EMAILS on every /api request. These exist only to add friction before
+  // showing the most sensitive screens within an already-authenticated session.)
   const handleVerifyAdminPassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (adminPasswordInput.trim() === "mansi123") {
@@ -77,25 +67,31 @@ export default function App() {
   };
 
   const handleLockAll = () => {
-    setIsSanctuaryUnlocked(false);
     setIsAdminUnlocked(false);
     setIsGalleryUnlocked(false);
-    localStorage.removeItem("sanctuary_main_unlocked");
     localStorage.removeItem("sanctuary_admin_unlocked");
     localStorage.removeItem("sanctuary_gallery_unlocked");
-    setMainPasswordInput("");
     setAdminPasswordInput("");
     setGalleryPasswordInput("");
     setActiveTab("gifts"); // default tab
   };
 
-  // Load database state on launch
+  const handleSignOut = async () => {
+    await signOut();
+    handleLockAll();
+    setDb(null);
+  };
+
+  // Load database state on launch (only once a verified Google session exists)
   const fetchDatabase = async () => {
     try {
-      const response = await fetch("/api/database");
+      const response = await apiFetch("/api/database");
       if (response.ok) {
         const data: SanctuaryDB = await response.json();
         setDb(data);
+      } else if (response.status === 401) {
+        // Session expired or was revoked server-side - drop back to sign-in.
+        await handleSignOut();
       }
     } catch (err) {
       console.error("Failed to load sanctuary database:", err);
@@ -105,13 +101,25 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetchDatabase();
+    if (authUser) {
+      fetchDatabase();
+    }
+  }, [authUser]);
+
+  // If any API call comes back 401 (session expired, or removed from
+  // ALLOWED_EMAILS in GCP), drop back to the sign-in screen immediately.
+  useEffect(() => {
+    const handler = () => {
+      handleSignOut();
+    };
+    window.addEventListener("sanctuary:unauthorized", handler);
+    return () => window.removeEventListener("sanctuary:unauthorized", handler);
   }, []);
 
   // API Call Helpers to sync with server Node container
   const handleClaimGift = async (id: string, claimedBy: "Him" | "Her") => {
     try {
-      const response = await fetch(`/api/gifts/${id}/claim`, {
+      const response = await apiFetch(`/api/gifts/${id}/claim`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ claimedBy })
@@ -126,7 +134,7 @@ export default function App() {
 
   const handleRedeemGift = async (id: string) => {
     try {
-      const response = await fetch(`/api/gifts/${id}/redeem`, {
+      const response = await apiFetch(`/api/gifts/${id}/redeem`, {
         method: "POST"
       });
       if (response.ok) {
@@ -139,7 +147,7 @@ export default function App() {
 
   const handleAddGift = async (title: string, description: string, category: "Pampering" | "Sensual" | "Intimate" | "Wicked", receiver: "Him" | "Her" | "Together") => {
     try {
-      const response = await fetch("/api/gifts", {
+      const response = await apiFetch("/api/gifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, description, category, receiver })
@@ -154,7 +162,7 @@ export default function App() {
 
   const handleDeleteGift = async (id: string) => {
     try {
-      const response = await fetch(`/api/gifts/${id}/delete`, {
+      const response = await apiFetch(`/api/gifts/${id}/delete`, {
         method: "POST"
       });
       if (response.ok) {
@@ -166,7 +174,7 @@ export default function App() {
   };
 
   const handleGenerateWicked = async (target: "Command Him" | "Command Her" | "Together", intensity?: string): Promise<WickedChallenge> => {
-    const response = await fetch("/api/wicked/generate", {
+    const response = await apiFetch("/api/wicked/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ target, intensity })
@@ -180,7 +188,7 @@ export default function App() {
   };
 
   const handleGeneratePrompt = async (target: "Command Him" | "Command Her" | "Together") => {
-    const response = await fetch("/api/gallery/prompt", {
+    const response = await apiFetch("/api/gallery/prompt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ target })
@@ -192,7 +200,7 @@ export default function App() {
   };
 
   const handleUploadPhoto = async (imageUrl: string, promptText: string, target: "Command Him" | "Command Her" | "Together"): Promise<VaultPhoto> => {
-    const response = await fetch("/api/gallery/upload", {
+    const response = await apiFetch("/api/gallery/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ imageUrl, promptText, target })
@@ -207,7 +215,7 @@ export default function App() {
 
   const handleDeletePhoto = async (id: string) => {
     try {
-      const response = await fetch(`/api/gallery/delete/${id}`, {
+      const response = await apiFetch(`/api/gallery/delete/${id}`, {
         method: "POST"
       });
       if (response.ok) {
@@ -220,7 +228,7 @@ export default function App() {
 
   const handleUpdatePeriodConfig = async (lastPeriodDate: string, cycleLength: number, periodLength: number, pregnancyMode?: boolean, pregnancyStartDate?: string) => {
     try {
-      const response = await fetch("/api/period/config", {
+      const response = await apiFetch("/api/period/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lastPeriodDate, cycleLength, periodLength, pregnancyMode, pregnancyStartDate })
@@ -247,7 +255,7 @@ export default function App() {
     sex?: "None" | "Protected" | "Unprotected"
   ) => {
     try {
-      const response = await fetch("/api/period/log", {
+      const response = await apiFetch("/api/period/log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ date, symptoms, moods, intimacyLevel, notes, flow, temperature, weight, waterIntake, sleepDuration, sex })
@@ -262,7 +270,7 @@ export default function App() {
 
   const handleUpdateAdminSettings = async (settings: Partial<AdminSettings>) => {
     try {
-      const response = await fetch("/api/admin/settings", {
+      const response = await apiFetch("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings)
@@ -282,16 +290,16 @@ export default function App() {
         wickedActions: db?.adminSettings?.wickedActions || []
       });
       // For history clearing we reload DB fully
-      const response = await fetch("/api/admin/settings", {
+      const response = await apiFetch("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wickedActions: db?.adminSettings?.wickedActions })
       });
       // Quick wipe response simulator
-      const dbRes = await fetch("/api/database");
+      const dbRes = await apiFetch("/api/database");
       const data = await dbRes.json();
       data.wickedChallengesHistory = [];
-      const saveRes = await fetch("/api/admin/settings", {
+      const saveRes = await apiFetch("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clearWickedFlag: true })
@@ -306,7 +314,7 @@ export default function App() {
   // Task 1: Add Important Date reminder action
   const handleAddDate = async (title: string, date: string, category: "Anniversary" | "Birthday" | "Special Date" | "Other", reminderDaysAhead: number, description?: string) => {
     try {
-      const response = await fetch("/api/dates", {
+      const response = await apiFetch("/api/dates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, date, category, reminderDaysAhead, description })
@@ -321,7 +329,7 @@ export default function App() {
 
   const handleDeleteDate = async (id: string) => {
     try {
-      const response = await fetch(`/api/dates/${id}`, {
+      const response = await apiFetch(`/api/dates/${id}`, {
         method: "DELETE"
       });
       if (response.ok) {
@@ -342,7 +350,7 @@ export default function App() {
     price?: string
   ) => {
     try {
-      const response = await fetch("/api/gift-purchases", {
+      const response = await apiFetch("/api/gift-purchases", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, description, category, photoUrl, buyer, price })
@@ -357,7 +365,7 @@ export default function App() {
 
   const handleDeleteGiftPurchase = async (id: string) => {
     try {
-      const response = await fetch(`/api/gift-purchases/${id}`, {
+      const response = await apiFetch(`/api/gift-purchases/${id}`, {
         method: "DELETE"
       });
       if (response.ok) {
@@ -371,7 +379,7 @@ export default function App() {
   // Task 3: Import Period Tracking sync data
   const handleImportPeriodData = async (logs: any[], config?: any): Promise<boolean> => {
     try {
-      const response = await fetch("/api/period/import", {
+      const response = await apiFetch("/api/period/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ logs, config })
@@ -390,7 +398,7 @@ export default function App() {
   // Task 5: Kitchen Food & Recipes Alignment endpoints
   const handleSaveKitchenDish = async (dish: Omit<KitchenDish, "id" | "timestamp">) => {
     try {
-      const response = await fetch("/api/kitchen/save", {
+      const response = await apiFetch("/api/kitchen/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dish)
@@ -405,7 +413,7 @@ export default function App() {
 
   const handleDeleteKitchenDish = async (id: string) => {
     try {
-      const response = await fetch(`/api/kitchen/${id}`, {
+      const response = await apiFetch(`/api/kitchen/${id}`, {
         method: "DELETE"
       });
       if (response.ok) {
@@ -418,7 +426,7 @@ export default function App() {
 
   const handleUpdateKitchenNotes = async (id: string, notes: string) => {
     try {
-      const response = await fetch(`/api/kitchen/notes/${id}`, {
+      const response = await apiFetch(`/api/kitchen/notes/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes })
@@ -433,7 +441,7 @@ export default function App() {
 
   const handleUpdateKitchenRating = async (id: string, rating: number) => {
     try {
-      const response = await fetch(`/api/kitchen/rating/${id}`, {
+      const response = await apiFetch(`/api/kitchen/rating/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rating })
@@ -490,94 +498,29 @@ export default function App() {
     ? "theme-golden-hour" 
     : "theme-passionate-red";
 
-  // Primary Landing Page password protection gate
-  if (!isSanctuaryUnlocked) {
+  // Primary Landing Page authentication gate (Google Sign-In, server-verified)
+  if (isCheckingSession) {
     return (
-      <div className={`min-h-screen bg-[#050505] flex items-center justify-center p-6 relative overflow-hidden select-none ${themeClass}`} id="sanctuary-app">
-        {/* Ambient atmospheric glows */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[35rem] h-[35rem] bg-red-950/10 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-1/4 left-1/4 w-[25rem] h-[25rem] bg-red-900/5 rounded-full blur-[100px] pointer-events-none" />
-
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          className="w-full max-w-md bg-white/[0.01] backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-[0_0_50px_rgba(0,0,0,0.8)] relative z-10 space-y-8 text-center"
+      <div className={`min-h-screen bg-[#050505] flex items-center justify-center ${themeClass}`} id="sanctuary-app">
+        <motion.div
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+          className="text-neutral-500 text-xs font-mono uppercase tracking-widest"
         >
-          {/* Padlock Icon & Border */}
-          <div className="mx-auto w-16 h-16 bg-red-950/30 border border-red-500/20 rounded-2xl flex items-center justify-center shadow-lg shadow-red-950/20 glow-red">
-            <Lock className="w-7 h-7 text-red-500 animate-pulse" />
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-[10px] font-mono tracking-[0.3em] text-red-400 uppercase">
-              Secure Intimate Node
-            </span>
-            <h1 className="font-serif text-4xl font-light tracking-[0.1em] text-white uppercase italic">
-              Our Sanctuary
-            </h1>
-            <p className="text-xs text-neutral-400 max-w-xs mx-auto leading-relaxed">
-              Welcome back to your private haven. Authenticate with your shared passphrase to reveal our intimate vault.
-            </p>
-          </div>
-
-          <form onSubmit={handleVerifyMainPassword} className="space-y-4">
-            <div className="space-y-1.5 text-left">
-              <label className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest block ml-1">
-                Security Passphrase
-              </label>
-              <div className="relative">
-                <input
-                  type={showMainPassword ? "text" : "password"}
-                  value={mainPasswordInput}
-                  onChange={(e) => {
-                    setMainPasswordInput(e.target.value);
-                    if (mainError) setMainError("");
-                  }}
-                  placeholder="Enter passphrase..."
-                  required
-                  className="w-full bg-black/60 border border-white/5 focus:border-red-500/55 rounded-2xl py-3 px-4 pl-10 pr-10 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-red-500/30 transition duration-300"
-                />
-                <KeyRound className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                
-                <button
-                  type="button"
-                  onClick={() => setShowMainPassword(!showMainPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition cursor-pointer"
-                >
-                  {showMainPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {mainError && (
-              <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-red-950/30 border border-red-900/50 rounded-xl px-3.5 py-2.5 text-xs text-red-400 flex items-center gap-2"
-              >
-                <ShieldAlert className="w-4 h-4 shrink-0 text-red-500" />
-                <span className="text-left leading-normal">{mainError}</span>
-              </motion.div>
-            )}
-
-            <button
-              type="submit"
-              className="w-full py-3.5 bg-gradient-to-r from-red-950 to-red-900 hover:from-red-900 hover:to-red-800 border border-red-500/20 hover:border-red-500/40 text-red-300 hover:text-white text-xs font-bold font-mono tracking-widest uppercase rounded-2xl shadow-lg transition duration-300 active:scale-[0.98] glow-red cursor-pointer flex items-center justify-center gap-2"
-            >
-              <Unlock className="w-4 h-4" />
-              Unlock Sanctuary
-            </button>
-          </form>
-
-          {/* Verification Tip */}
-          <div className="pt-2 text-[10px] text-neutral-500 font-mono tracking-wide leading-relaxed border-t border-white/5">
-            🔒 Pure client-side AES simulation. Authorized connection only.
-          </div>
+          Verifying session...
         </motion.div>
       </div>
     );
   }
+
+  if (!authUser) {
+    return (
+      <div className={themeClass} id="sanctuary-app">
+        <GoogleSignIn onCredential={signInWithGoogle} error={authError} />
+      </div>
+    );
+  }
+
 
   return (
     <div className={`min-h-screen text-neutral-100 flex flex-col justify-between ${themeClass}`} id="sanctuary-app">
@@ -602,13 +545,28 @@ export default function App() {
             A beautiful private sanctuary to deepen connection, align cycles, exchange custom sensual gifts, and record intimate memories.
           </p>
 
-          <div className="flex justify-center pt-2">
+          <div className="flex justify-center items-center gap-2 pt-2 flex-wrap">
+            {authUser && (
+              <span className="flex items-center gap-1.5 text-[10px] text-white/40 font-mono border border-white/5 bg-white/[0.01] px-3 py-1 rounded-full select-none">
+                {authUser.picture && (
+                  <img src={authUser.picture} alt="" className="w-3.5 h-3.5 rounded-full" referrerPolicy="no-referrer" />
+                )}
+                {authUser.name}
+              </span>
+            )}
             <button
               onClick={handleLockAll}
               className="group flex items-center gap-1.5 text-[10px] text-white/40 hover:text-red-400 transition font-mono border border-white/5 hover:border-red-900/35 bg-white/[0.01] hover:bg-red-950/20 px-3 py-1 rounded-full cursor-pointer select-none"
             >
               <Lock className="w-3 h-3 text-red-500 group-hover:animate-bounce" />
               Secure & Lock Vault
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="group flex items-center gap-1.5 text-[10px] text-white/40 hover:text-amber-400 transition font-mono border border-white/5 hover:border-amber-900/35 bg-white/[0.01] hover:bg-amber-950/20 px-3 py-1 rounded-full cursor-pointer select-none"
+            >
+              <LogOut className="w-3 h-3 text-amber-500" />
+              Sign Out
             </button>
           </div>
         </header>
