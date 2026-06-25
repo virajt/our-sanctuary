@@ -6,14 +6,36 @@ steps:
         echo "=== DEBUG: substitution variable check ==="
         echo "Direct YAML substitution as literal text: [${_GOOGLE_CLIENT_ID}]"
         echo "=== END DEBUG ==="
+
+  # Build the Docker image explicitly with --build-arg, rather than relying
+  # on `gcloud run deploy --source .`'s --update-build-env-vars flag. That
+  # flag is documented for buildpacks-based source builds; when a literal
+  # Dockerfile is present (as here), Cloud Run builds straight from it and
+  # that flag does not reliably translate into a Docker build arg. Building
+  # explicitly with `docker build --build-arg` guarantees GOOGLE_CLIENT_ID
+  # actually reaches the `ARG GOOGLE_CLIENT_ID` line in the Dockerfile.
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'GOOGLE_CLIENT_ID=${_GOOGLE_CLIENT_ID}'
+      - '-t'
+      - 'australia-southeast1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/our-sanctuary/our-sanctuary-service:${SHORT_SHA}'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'australia-southeast1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/our-sanctuary/our-sanctuary-service:${SHORT_SHA}'
+
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
       - 'our-sanctuary-service'
-      - '--source'
-      - '.'
+      - '--image'
+      - 'australia-southeast1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/our-sanctuary/our-sanctuary-service:${SHORT_SHA}'
       - '--region'
       - 'australia-southeast1'
       - '--allow-unauthenticated'
@@ -22,16 +44,11 @@ steps:
       # Runtime auth vars (GOOGLE_CLIENT_ID, ALLOWED_EMAILS, SESSION_SECRET)
       # are managed directly on the Cloud Run service via the console
       # ("Edit & Deploy New Revision" -> Variables & Secrets). We deliberately
-      # use --update-env-vars (not --set-env-vars) above so this file only
+      # use --update-env-vars (not --set-env-vars) above so this step only
       # ever touches GEMINI_API_KEY and never wipes those other variables -
       # --set-env-vars is destructive and deletes any existing runtime
       # variable not explicitly listed in it, which would otherwise silently
-      # break sign-in on every build. GOOGLE_CLIENT_ID below is passed
-      # separately as a *build-time* value only, since Vite needs it during
-      # `npm run build` to embed it in the frontend bundle (see
-      # SETUP_GOOGLE_AUTH.md, step 3) - it is unrelated to the runtime copy.
-      - '--update-build-env-vars'
-      - 'GOOGLE_CLIENT_ID=${_GOOGLE_CLIENT_ID}'
+      # break sign-in on every deploy.
       - '--add-volume'
       - 'name=db-volume,type=cloud-storage,bucket=the-parent-500004-sanctuary-data'
       - '--add-volume-mount'
@@ -39,6 +56,9 @@ steps:
       - '--project'
       - 'the-parent-500004'
       - '--quiet'
+
+images:
+  - 'australia-southeast1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/our-sanctuary/our-sanctuary-service:${SHORT_SHA}'
 options:
   logging: CLOUD_LOGGING_ONLY
 substitutions:
