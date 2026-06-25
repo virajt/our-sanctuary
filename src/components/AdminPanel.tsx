@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { AdminSettings, SanctuaryDB } from "../types";
-import { Shield, Settings, Sliders, Database, Eye, Check, Plus, RefreshCw, Trash2, HelpCircle } from "lucide-react";
+import { AdminSettings, SanctuaryDB, CycleLog, PeriodConfig } from "../types";
+import { Shield, Settings, Sliders, Database, Eye, Check, Plus, RefreshCw, Trash2, HelpCircle, CalendarHeart } from "lucide-react";
 import { motion } from "motion/react";
+import CycleCalendar from "./CycleCalendar";
 
 interface AdminPanelProps {
   settings: AdminSettings;
@@ -9,10 +10,36 @@ interface AdminPanelProps {
   onUpdateSettings: (settings: Partial<AdminSettings>) => void;
   onClearHistory?: () => void;
   onImportPeriodData?: (logs: any[], config?: any) => Promise<boolean>;
+  periodConfig: PeriodConfig;
+  cycleLogs: CycleLog[];
+  onUpdatePeriodConfig: (lastPeriodDate: string, cycleLength: number, periodLength: number, pregnancyMode?: boolean, pregnancyStartDate?: string) => void;
+  onAddPeriodLog: (
+    date: string,
+    symptoms: string[],
+    moods: string[],
+    intimacyLevel: CycleLog["intimacyLevel"],
+    notes?: string,
+    flow?: CycleLog["flow"],
+    temperature?: number,
+    weight?: number,
+    waterIntake?: number,
+    sleepDuration?: number,
+    sex?: CycleLog["sex"]
+  ) => void;
 }
 
-export default function AdminPanel({ settings, dbStats, onUpdateSettings, onClearHistory, onImportPeriodData }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"general" | "database" | "dictionaries" | "import">("general");
+export default function AdminPanel({
+  settings,
+  dbStats,
+  onUpdateSettings,
+  onClearHistory,
+  onImportPeriodData,
+  periodConfig,
+  cycleLogs,
+  onUpdatePeriodConfig,
+  onAddPeriodLog,
+}: AdminPanelProps) {
+  const [activeTab, setActiveTab] = useState<"general" | "database" | "dictionaries" | "import" | "calendar">("general");
 
   // Local state for dictionary configurations
   const [newAction, setNewAction] = useState("");
@@ -227,7 +254,7 @@ export default function AdminPanel({ settings, dbStats, onUpdateSettings, onClea
 
         {/* Tab Selection */}
         <div className="flex bg-luxury-950/80 p-1.5 rounded-2xl border border-white/5 gap-1.5 flex-wrap">
-          {(["general", "dictionaries", "import", "database"] as const).map((tab) => (
+          {(["general", "calendar", "dictionaries", "import", "database"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => {
@@ -240,7 +267,7 @@ export default function AdminPanel({ settings, dbStats, onUpdateSettings, onClea
                   : "text-neutral-400 hover:text-white border-transparent"
               }`}
             >
-              {tab === "import" ? "Period Sync Import" : tab}
+              {tab === "import" ? "Period Sync Import" : tab === "calendar" ? "Cycle Calendar" : tab}
             </button>
           ))}
         </div>
@@ -382,6 +409,28 @@ export default function AdminPanel({ settings, dbStats, onUpdateSettings, onClea
                 </div>
               )}
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === "calendar" && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/[0.02] backdrop-blur-xl p-6 rounded-3xl border border-white/10 space-y-6"
+          >
+            <div className="flex items-center gap-2">
+              <CalendarHeart className="w-5 h-5 text-red-400" />
+              <h3 className="font-serif text-xl text-white">Cycle Calendar</h3>
+            </div>
+            <p className="text-xs text-neutral-500 leading-relaxed -mt-2">
+              Click any day to correct logged data or jump to a date directly. Future months show predicted period, fertile window, ovulation, and pregnancy-test windows based on the most recent logged data.
+            </p>
+            <CycleCalendar
+              config={periodConfig}
+              logs={cycleLogs}
+              onUpdateConfig={onUpdatePeriodConfig}
+              onAddLog={onAddPeriodLog}
+            />
           </motion.div>
         )}
 

@@ -1033,6 +1033,10 @@ export default function App() {
                       onUpdateSettings={handleUpdateAdminSettings}
                       onClearHistory={handleClearChamberHistory}
                       onImportPeriodData={handleImportPeriodData}
+                      periodConfig={db.periodConfig}
+                      cycleLogs={db.cycleLogs}
+                      onUpdatePeriodConfig={handleUpdatePeriodConfig}
+                      onAddPeriodLog={handleAddPeriodLog}
                     />
                   </div>
                 )}

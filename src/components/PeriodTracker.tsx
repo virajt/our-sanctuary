@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { apiFetch } from "../lib/apiFetch";
+import { getMostRecentPeriodStart } from "../lib/cyclePredictions";
 import Reveal from "./effects/Reveal";
 import MagneticButton from "./effects/MagneticButton";
 import { PeriodConfig, CycleLog, CyclePhase, PhaseProtocol } from "../types";
@@ -379,7 +380,13 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
     }
 
     // ---------------- STANDARD CYCLE CALCULATIONS ----------------
-    const lastDate = new Date(config.lastPeriodDate);
+    // Prefer the period start date derived from actual logged flow data
+    // over the raw config field - this is what keeps predictions correct
+    // even if config.lastPeriodDate drifts out of sync with what's
+    // actually been logged day-by-day (e.g. from an import that recorded
+    // a slightly different date than the daily log entries).
+    const effectiveLastPeriodDate = getMostRecentPeriodStart(config, logs);
+    const lastDate = new Date(effectiveLastPeriodDate);
     const today = new Date();
     const diffTime = today.getTime() - lastDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
