@@ -1,4 +1,16 @@
 steps:
+  - name: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "=== DEBUG: substitution variable check ==="
+        echo "GOOGLE_CLIENT_ID substitution value length: ${#_GOOGLE_CLIENT_ID}"
+        if [ -z "$_GOOGLE_CLIENT_ID" ]; then
+          echo "WARNING: _GOOGLE_CLIENT_ID IS EMPTY"
+        else
+          echo "_GOOGLE_CLIENT_ID is set (first 10 chars): ${_GOOGLE_CLIENT_ID:0:10}..."
+        fi
+        echo "=== END DEBUG ==="
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
