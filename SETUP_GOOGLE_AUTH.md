@@ -35,7 +35,11 @@ itself.
      https://our-sanctuary-xxxxx-uc.a.run.app
      ```
      If you're also testing locally with `npm run dev`, add
-     `http://localhost:3000` too.
+     `http://localhost:3000` too. **If you use a custom domain** (e.g.
+     `https://our-sanctuary.yourdomain.com`) instead of the default
+     `*.run.app` URL, add that exact custom domain here too - sign-in will
+     fail with "Error 400: origin_mismatch" if the domain you're actually
+     visiting isn't in this list, even if the default Cloud Run URL is.
    - **Authorized redirect URIs**: you can leave this empty — this app uses
      the Google Identity Services popup/button flow, which doesn't redirect.
 5. Click **Create**. Copy the **Client ID** (it looks like
@@ -81,39 +85,44 @@ their browser session will stop working on their very next request.
 This is the step that's easy to miss, and it's why signing in might not
 work yet even after setting the variables in step 2.
 
-**Why this step exists:** the three variables you just set in step 2 are
+**Why this step exists:** the three variables you set in step 2 are
 *runtime* variables - Cloud Run hands them to the container only once it's
 already running. But GOOGLE_CLIENT_ID also needs to be baked into the
 frontend's JavaScript file at *build* time, because Vite (the tool that
 builds the React frontend) replaces it directly into the compiled code
-before the container ever runs. Runtime-only variables never reach that
-step, so the sign-in button would silently have no Client ID to use.
+before the container ever runs.
 
-Since your Cloud Run service rebuilds automatically from GitHub on every
-push (continuous deployment via a Cloud Build trigger), here's how to fix
-it for your exact setup:
+**Important note on how this repo's build works:** this project has a
+Dockerfile, and Cloud Run's GitHub-connected continuous deployment builds
+straight from it. The gcloud flag normally suggested for this
+(--update-build-env-vars on `gcloud run deploy --source`) is documented for
+buildpacks-based builds and does NOT reliably apply when a literal
+Dockerfile is present - we confirmed this directly while setting this up.
+Because of that, cloudbuild.yaml in this repo builds the Docker image as an
+explicit step with a real `docker build --build-arg GOOGLE_CLIENT_ID=...`,
+then pushes that image and deploys it - rather than using the single-step
+`gcloud run deploy --source .` shortcut.
+
+Setup steps:
 
 1. Go to your Cloud Run service page, and click "Edit repo settings" (or
    "Manage connected repositories") near the "Continuously deploy from a
    repository" section. This opens the underlying Cloud Build trigger.
 2. Find the trigger and click Edit.
-3. Scroll to Advanced -> Substitution variables (sometimes shown simply
-   as "Variables").
-4. Add a substitution variable:
+3. Under Configuration, make sure "Repository" is selected (not "Inline"),
+   pointing at cloudbuild.yaml in the repo root. If it's set to "Inline",
+   the trigger is using its own embedded config and will silently ignore
+   the cloudbuild.yaml in this repo entirely.
+4. Scroll to Advanced -> Substitution variables and add:
    - Variable: _GOOGLE_CLIENT_ID
    - Value: your Client ID from step 1
-5. This repo already includes a cloudbuild.yaml with the build wired up to
-   read ${_GOOGLE_CLIENT_ID} and pass it into the Docker build as a build
-   argument. If your trigger's "Configuration" is set to "Cloud Build
-   configuration file (yaml or json)", point it at cloudbuild.yaml in the
-   repo root and it will pick this up automatically.
-   - If the trigger is instead set to "Dockerfile" as the build type
-     (common with the "quick connect" flow), Cloud Run's UI doesn't expose
-     a way to pass build args directly - in that case, switch the trigger's
-     build configuration to use cloudbuild.yaml instead, since that file
-     is what actually threads the Client ID through to the Docker build.
-6. Save, then push any small commit (or click Run on the trigger
-   manually) to kick off a fresh build with the Client ID included.
+5. Save, then push any small commit (or click Run on the trigger manually)
+   to kick off a fresh build with the Client ID included.
+6. Make sure there is only ONE trigger for this service. Duplicate
+   triggers (e.g. one left over from an earlier setup attempt) can race
+   each other on every push, and whichever finishes last "wins" and becomes
+   the live revision - which can make a working fix look like it
+   "sometimes doesn't work."
 
 After this rebuild completes, the sign-in button should actually have a
 Client ID to work with.

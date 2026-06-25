@@ -1,12 +1,4 @@
 steps:
-  - name: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "=== DEBUG: substitution variable check ==="
-        echo "Direct YAML substitution as literal text: [${_GOOGLE_CLIENT_ID}]"
-        echo "=== END DEBUG ==="
-
   # Build the Docker image explicitly with --build-arg, rather than relying
   # on `gcloud run deploy --source .`'s --update-build-env-vars flag. That
   # flag is documented for buildpacks-based source builds; when a literal
