@@ -2,6 +2,9 @@ import React, { useState, useRef } from "react";
 import { VaultPhoto, PhotoCameraPrompt } from "../types";
 import { Unlock, Sparkles, Image, Check, Plus, Upload, Trash2, Camera, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import TiltCard from "./effects/TiltCard";
+import Reveal from "./effects/Reveal";
+import MagneticButton from "./effects/MagneticButton";
 
 interface PrivateGalleryProps {
   photos: VaultPhoto[];
@@ -147,7 +150,7 @@ export default function PrivateGallery({ photos, onGeneratePrompt, onUploadPhoto
                   </div>
                 </div>
 
-                <button
+                <MagneticButton
                   onClick={handleFetchPrompt}
                   disabled={isGeneratingPrompt}
                   className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-red-950 to-red-900 text-red-400 border border-red-805/40 text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 glow-red animate-pulse"
@@ -163,7 +166,7 @@ export default function PrivateGallery({ photos, onGeneratePrompt, onUploadPhoto
                       <span>Retrieve Photo Prompt</span>
                     </>
                   )}
-                </button>
+                </MagneticButton>
               </div>
 
               {/* Right column prompt reveal & upload zone (Col span 7) */}
@@ -264,10 +267,11 @@ export default function PrivateGallery({ photos, onGeneratePrompt, onUploadPhoto
 
               {photos.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {photos.map((item) => (
+                  {photos.map((item, index) => (
+                    <Reveal key={item.id} delay={Math.min(index * 0.04, 0.4)}>
+                    <TiltCard maxTilt={3}>
                     <motion.div
                       layout
-                      key={item.id}
                       className="bg-luxury-900/60 border border-luxury-800 rounded-3xl overflow-hidden group shadow-lg flex flex-col justify-between"
                     >
                       {/* Secure Image Container */}
@@ -327,6 +331,8 @@ export default function PrivateGallery({ photos, onGeneratePrompt, onUploadPhoto
                       </div>
 
                     </motion.div>
+                    </TiltCard>
+                    </Reveal>
                   ))}
                 </div>
               ) : (

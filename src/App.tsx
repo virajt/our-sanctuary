@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { SanctuaryDB, SensoryGift, CycleLog, PeriodConfig, VaultPhoto, AdminSettings, WickedChallenge, ImportantDate, GiftPurchase, KitchenDish } from "./types";
 import MusicPlayer from "./components/MusicPlayer";
 import GiftsView from "./components/GiftsView";
@@ -10,6 +10,8 @@ import DateRemindersView from "./components/DateRemindersView";
 import GiftPurchasesView from "./components/GiftPurchasesView";
 import KitchenAlignment from "./components/KitchenAlignment";
 import GoogleSignIn from "./components/GoogleSignIn";
+import { SanctuaryTheme } from "./components/effects/EmberFieldBackground";
+const EmberFieldBackground = React.lazy(() => import("./components/effects/EmberFieldBackground"));
 import { useAuth } from "./hooks/useAuth";
 import { apiFetch } from "./lib/apiFetch";
 import { Gift, Flame, Shield, Calendar, Settings, Sparkles, Heart, Bell, Tag, Utensils, Lock, Eye, EyeOff, KeyRound, LogOut } from "lucide-react";
@@ -501,6 +503,9 @@ export default function App() {
   if (!authUser) {
     return (
       <div id="sanctuary-app">
+        <Suspense fallback={null}>
+          <EmberFieldBackground theme="passionate-red" intensity="hero" />
+        </Suspense>
         <GoogleSignIn onCredential={signInWithGoogle} error={authError} />
       </div>
     );
@@ -524,10 +529,18 @@ export default function App() {
     : activeTheme === "Golden Hour" 
     ? "theme-golden-hour" 
     : "theme-passionate-red";
+  const emberTheme: SanctuaryTheme = activeTheme === "Midnight Blue"
+    ? "midnight-blue"
+    : activeTheme === "Golden Hour"
+    ? "golden-hour"
+    : "passionate-red";
 
 
   return (
     <div className={`min-h-screen text-neutral-100 flex flex-col justify-between ${themeClass}`} id="sanctuary-app">
+      <Suspense fallback={null}>
+        <EmberFieldBackground theme={emberTheme} intensity="ambient" />
+      </Suspense>
       
       {/* 1. PRIMARY CONTAINER */}
       <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -587,12 +600,19 @@ export default function App() {
             {/* Button 1: Gifts */}
             <button
               onClick={() => setActiveTab("gifts")}
-              className={`py-2.5 px-1 rounded-xl transition duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border ${
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
                 activeTab === "gifts"
-                  ? "bg-red-950/45 border-red-800 text-white font-bold glow-red"
+                  ? "border-red-800 text-white font-bold glow-red"
                   : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
               }`}
             >
+              {activeTab === "gifts" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
               <Gift className="w-4 h-4 text-red-500/80" />
               <span className="text-[9px] tracking-wide uppercase">Vouchers</span>
             </button>
@@ -600,12 +620,19 @@ export default function App() {
             {/* Button 2: Legacy Gift Purchases */}
             <button
               onClick={() => setActiveTab("purchases")}
-              className={`py-2.5 px-1 rounded-xl transition duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border ${
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
                 activeTab === "purchases"
-                  ? "bg-red-955/40 border-red-800 text-white font-bold glow-red"
+                  ? "border-red-800 text-white font-bold glow-red"
                   : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
               }`}
             >
+              {activeTab === "purchases" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
               <Tag className="w-4 h-4 text-red-500/80" />
               <span className="text-[9px] tracking-wide uppercase">Gifts</span>
             </button>
@@ -613,12 +640,19 @@ export default function App() {
             {/* Button 3: Wicked Chamber */}
             <button
               onClick={() => setActiveTab("wicked")}
-              className={`py-2.5 px-1 rounded-xl transition duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border ${
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
                 activeTab === "wicked"
-                  ? "bg-red-950/45 border-red-800 text-white font-bold glow-red"
+                  ? "border-red-800 text-white font-bold glow-red"
                   : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
               }`}
             >
+              {activeTab === "wicked" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
               <Flame className={`w-4 h-4 ${activeTab === "wicked" ? "animate-pulse text-red-500" : "text-white/40 group-hover:text-red-400"}`} />
               <span className="text-[9px] tracking-wide uppercase">Wicked</span>
             </button>
@@ -626,12 +660,19 @@ export default function App() {
             {/* Button 4: Vault Gallery */}
             <button
               onClick={() => setActiveTab("gallery")}
-              className={`py-2.5 px-1 rounded-xl transition duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border ${
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
                 activeTab === "gallery"
-                  ? "bg-red-955/40 border-red-800 text-white font-bold glow-red"
+                  ? "border-red-800 text-white font-bold glow-red"
                   : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
               }`}
             >
+              {activeTab === "gallery" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
               <Shield className="w-4 h-4 text-red-500/80" />
               <span className="text-[9px] tracking-wide uppercase">Vault</span>
             </button>
@@ -639,12 +680,19 @@ export default function App() {
             {/* Button 5: Cycle Tracker */}
             <button
               onClick={() => setActiveTab("period")}
-              className={`py-2.5 px-1 rounded-xl transition duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border ${
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
                 activeTab === "period"
-                  ? "bg-red-950/45 border-red-800 text-white font-bold glow-red"
+                  ? "border-red-800 text-white font-bold glow-red"
                   : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
               }`}
             >
+              {activeTab === "period" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
               <Calendar className="w-4 h-4 text-red-500/80" />
               <span className="text-[9px] tracking-wide uppercase">Cycle</span>
             </button>
@@ -652,12 +700,19 @@ export default function App() {
             {/* Button 6: Kitchen Alignment */}
             <button
               onClick={() => setActiveTab("kitchen")}
-              className={`py-2.5 px-1 rounded-xl transition duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border ${
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
                 activeTab === "kitchen"
-                  ? "bg-red-950/45 border-red-800 text-white font-bold glow-red"
+                  ? "border-red-800 text-white font-bold glow-red"
                   : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
               }`}
             >
+              {activeTab === "kitchen" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
               <Utensils className="w-4 h-4 text-red-500/80" />
               <span className="text-[9px] tracking-wide uppercase">Kitchen</span>
             </button>
@@ -665,12 +720,19 @@ export default function App() {
             {/* Button 6: Sacred Date Reminders */}
             <button
               onClick={() => setActiveTab("dates")}
-              className={`py-2.5 px-1 rounded-xl transition duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border ${
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
                 activeTab === "dates"
-                  ? "bg-red-955/40 border-red-800 text-white font-bold glow-red"
+                  ? "border-red-800 text-white font-bold glow-red"
                   : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
               }`}
             >
+              {activeTab === "dates" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
               <Bell className="w-4 h-4 text-red-500/80" />
               <span className="text-[9px] tracking-wide uppercase">Reminders</span>
             </button>
@@ -678,12 +740,19 @@ export default function App() {
             {/* Button 7: Admin Panel */}
             <button
               onClick={() => setActiveTab("admin")}
-              className={`py-2.5 px-1 rounded-xl transition duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border ${
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
                 activeTab === "admin"
-                  ? "bg-red-955/40 border-red-800 text-white font-bold glow-red"
+                  ? "border-red-800 text-white font-bold glow-red"
                   : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
               }`}
             >
+              {activeTab === "admin" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
               <Settings className="w-4 h-4 text-red-500/80" />
               <span className="text-[9px] tracking-wide uppercase">Admin</span>
             </button>
@@ -697,10 +766,10 @@ export default function App() {
             
             {activeTab === "gifts" && (
               <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 key="giftsView"
               >
                 <GiftsView
@@ -715,10 +784,10 @@ export default function App() {
 
             {activeTab === "purchases" && (
               <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 key="giftPurchasesView"
               >
                 <GiftPurchasesView
@@ -731,10 +800,10 @@ export default function App() {
 
             {activeTab === "wicked" && (
               <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 key="wickedChamber"
               >
                 <WickedChamber
@@ -747,10 +816,10 @@ export default function App() {
 
             {activeTab === "gallery" && (
               <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 key="privateGallery"
               >
                 {!isGalleryUnlocked ? (
@@ -833,10 +902,10 @@ export default function App() {
 
             {activeTab === "period" && (
               <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 key="periodTracker"
               >
                 <PeriodTracker
@@ -851,10 +920,10 @@ export default function App() {
 
             {activeTab === "kitchen" && (
               <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 key="kitchenAlignment"
               >
                 <KitchenAlignment
@@ -870,10 +939,10 @@ export default function App() {
 
             {activeTab === "dates" && (
               <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 key="dateReminders"
               >
                 <DateRemindersView
@@ -886,10 +955,10 @@ export default function App() {
 
             {activeTab === "admin" && (
               <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 key="adminSettings"
               >
                 {!isAdminUnlocked ? (

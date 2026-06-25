@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Play, Pause, Volume2, Music, Sparkles, SkipForward, Flame, Headphones, Link2, Info, Compass } from "lucide-react";
 import { motion } from "motion/react";
+import TiltCard from "./effects/TiltCard";
+import Reveal from "./effects/Reveal";
+import MagneticButton from "./effects/MagneticButton";
 
 interface AudioTrack {
   id: string;
@@ -90,7 +93,10 @@ export default function MusicPlayer() {
   const masterVolumeRef = useRef<GainNode | null>(null);
   
   // Synthesizer Oscillators and LFOs
-  const oscsRef = useRef<OscillatorNode[]>([]);
+  // Holds both true oscillators and the white-noise AudioBufferSourceNode -
+  // both expose .stop(), which is all stopSynth() needs to clean them up.
+  type StoppableAudioNode = OscillatorNode | AudioBufferSourceNode;
+  const oscsRef = useRef<StoppableAudioNode[]>([]);
   const filtersRef = useRef<BiquadFilterNode[]>([]);
   const animFrameIdRef = useRef<number | null>(null);
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -551,9 +557,10 @@ export default function MusicPlayer() {
               <SkipForward className="w-4 h-4" />
             </button>
 
-            <button
+            <MagneticButton
               onClick={handleTogglePlay}
-              className={`p-4 rounded-full transition-all duration-300 transform active:scale-95 shadow-xl flex items-center justify-center border cursor-pointer ${
+              strength={0.35}
+              className={`p-4 rounded-full transition-all duration-300 shadow-xl flex items-center justify-center border cursor-pointer ${
                 isPlaying 
                   ? "bg-rose-950/80 text-white/90 border-rose-800/40 hover:bg-rose-900/30 glow-red" 
                   : "bg-rose-900/60 text-white hover:bg-rose-800 border-rose-700/50 glow-red"
@@ -564,7 +571,7 @@ export default function MusicPlayer() {
               ) : (
                 <Play className="w-5 h-5 fill-current translate-x-0.5" />
               )}
-            </button>
+            </MagneticButton>
 
             <div className="flex items-center gap-2.5 bg-black/30 px-3 py-2 rounded-2xl border border-white/5">
               <Volume2 className="w-4 h-4 text-white/40" />
@@ -586,11 +593,12 @@ export default function MusicPlayer() {
       {playerMode === "curated" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {CURATED_PLAYLISTS.map((pl) => {
+            {CURATED_PLAYLISTS.map((pl, index) => {
               const isActive = activeCuratedId === pl.id;
               return (
+                <Reveal key={pl.id} delay={Math.min(index * 0.05, 0.3)}>
+                <TiltCard maxTilt={4} glare>
                 <div
-                  key={pl.id}
                   className={`p-5 rounded-2xl border transition-all text-left flex flex-col justify-between ${
                     isActive
                       ? "bg-rose-950/20 border-rose-500/30 shadow-lg"
@@ -633,6 +641,8 @@ export default function MusicPlayer() {
                     </button>
                   </div>
                 </div>
+                </TiltCard>
+                </Reveal>
               );
             })}
           </div>

@@ -16,6 +16,15 @@ export default defineConfig(() => {
       // not the user. Safe to bake into the client bundle.
       __GOOGLE_CLIENT_ID__: JSON.stringify(process.env.GOOGLE_CLIENT_ID || ''),
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            three: ['three', '@react-three/fiber', '@react-three/drei'],
+          },
+        },
+      },
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify - file watching is disabled to prevent flickering during agent edits.

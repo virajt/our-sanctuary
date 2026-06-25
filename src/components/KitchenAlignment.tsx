@@ -3,6 +3,9 @@ import { KitchenDish, CyclePhase } from "../types";
 import { apiFetch } from "../lib/apiFetch";
 import { Utensils, Egg, Sparkles, Heart, Clock, Trash2, Calendar, BookOpen, ChefHat, Plus, CircleCheck, Info, Smile } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import TiltCard from "./effects/TiltCard";
+import Reveal from "./effects/Reveal";
+import MagneticButton from "./effects/MagneticButton";
 
 interface KitchenAlignmentProps {
   dishes: KitchenDish[];
@@ -241,14 +244,14 @@ export default function KitchenAlignment({
             <p className="text-xs text-neutral-400">Generate personalized pure-vegetarian (with voluntary eggs) romantic meal preparations synced with her current cycle health.</p>
           </div>
           
-          <button
+          <MagneticButton
             onClick={handleGenerateRecipe}
             disabled={isGenerating}
-            className="px-5 py-2.5 bg-gradient-to-r from-red-950 to-red-900 border border-red-800/40 text-red-400 hover:text-red-300 text-xs font-bold rounded-2xl shadow-lg transition active:scale-95 flex items-center gap-2 cursor-pointer glow-red"
+            className="px-5 py-2.5 bg-gradient-to-r from-red-950 to-red-900 border border-red-800/40 text-red-400 hover:text-red-300 text-xs font-bold rounded-2xl shadow-lg transition flex items-center gap-2 cursor-pointer glow-red"
           >
             <Sparkles className={`w-4 h-4 text-red-500 ${isGenerating && "animate-spin"}`} />
             {isGenerating ? "Warming Up Oven..." : "Generate Gourmet Meal Idea"}
-          </button>
+          </MagneticButton>
         </div>
 
         {/* Configuration Selectors */}
@@ -428,11 +431,12 @@ export default function KitchenAlignment({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {dishes.map((dish) => {
+          {dishes.map((dish, index) => {
             const hasCustomNotes = editingNotesId === dish.id;
             return (
+              <Reveal key={dish.id} delay={Math.min(index * 0.04, 0.4)}>
+              <TiltCard maxTilt={4} glare>
               <div 
-                key={dish.id} 
                 className="bg-luxury-900/40 border border-luxury-800 rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-luxury-700 transition duration-300"
               >
                 <div className="space-y-3">
@@ -551,6 +555,8 @@ export default function KitchenAlignment({
                 </div>
 
               </div>
+              </TiltCard>
+              </Reveal>
             );
           })}
 

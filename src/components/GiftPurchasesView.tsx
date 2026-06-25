@@ -1,5 +1,7 @@
 import React, { useState, useRef } from "react";
 import { GiftPurchase } from "../types";
+import TiltCard from "./effects/TiltCard";
+import MagneticButton from "./effects/MagneticButton";
 import { DollarSign, Tag, Gift, Trash2, Camera, UploadCloud, Eye, Plus, Sparkles, Check, Filter } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -125,12 +127,12 @@ export default function GiftPurchasesView({ purchases, onAddPurchase, onDeletePu
           </p>
         </div>
 
-        <button
+        <MagneticButton
           onClick={() => setIsAdding(!isAdding)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-rose-900/60 hover:bg-rose-800 text-white border border-rose-700/50 text-xs font-semibold rounded-2xl shadow-lg transition-all active:scale-95 cursor-pointer glow-red"
+          className="flex items-center gap-2 px-5 py-2.5 bg-rose-900/60 hover:bg-rose-800 text-white border border-rose-700/50 text-xs font-semibold rounded-2xl shadow-lg transition-all cursor-pointer glow-red"
         >
           {isAdding ? "Close form" : "Log Purchased Gift"}
-        </button>
+        </MagneticButton>
       </div>
 
       {/* Success notifier popup toast */}
@@ -379,9 +381,9 @@ export default function GiftPurchasesView({ purchases, onAddPurchase, onDeletePu
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <AnimatePresence mode="popLayout">
           {filteredPurchases.map((purchase) => (
+            <TiltCard key={purchase.id} maxTilt={4} glare className="rounded-3xl">
             <motion.div
               layout
-              key={purchase.id}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -451,6 +453,7 @@ export default function GiftPurchasesView({ purchases, onAddPurchase, onDeletePu
               </div>
 
             </motion.div>
+            </TiltCard>
           ))}
         </AnimatePresence>
 

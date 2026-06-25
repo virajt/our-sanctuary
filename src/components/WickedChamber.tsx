@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { WickedChallenge } from "../types";
 import { Flame, Sparkles, Wand2, ShieldAlert, Heart, Calendar, Copy, Check, Info } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import TiltCard from "./effects/TiltCard";
+import MagneticButton from "./effects/MagneticButton";
 
 interface WickedChamberProps {
   challengesHistory: WickedChallenge[];
@@ -138,10 +140,11 @@ export default function WickedChamber({ challengesHistory, onGenerate, isLoading
           </div>
 
           {/* Core Spark Activation Button */}
-          <button
+          <MagneticButton
             onClick={handleGenerateClick}
             disabled={isLoading || isRolling}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-red-900 via-red-800 to-red-900 hover:from-red-800 hover:to-red-800 text-white font-serif text-lg font-medium tracking-wide shadow-xl shadow-red-950/40 hover:shadow-red-900/10 transition-all active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-3 cursor-pointer border border-red-700/40 glow-red"
+            strength={0.25}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-red-900 via-red-800 to-red-900 hover:from-red-800 hover:to-red-800 text-white font-serif text-lg font-medium tracking-wide shadow-xl shadow-red-950/40 hover:shadow-red-900/10 transition-all disabled:opacity-40 flex items-center justify-center gap-3 cursor-pointer border border-red-700/40 glow-red"
           >
             {isRolling ? (
               <>
@@ -158,11 +161,12 @@ export default function WickedChamber({ challengesHistory, onGenerate, isLoading
                 <span>Initialize Command</span>
               </>
             )}
-          </button>
+          </MagneticButton>
         </div>
 
         {/* Right Column: Display of Generated Command (Col span 7) */}
-        <div className="lg:col-span-7 bg-luxury-950/40 border border-luxury-800 rounded-3xl p-8 relative overflow-hidden flex flex-col justify-between min-h-[400px]">
+        <TiltCard maxTilt={3} className="lg:col-span-7">
+        <div className="bg-luxury-950/40 border border-luxury-800 rounded-3xl p-8 relative overflow-hidden flex flex-col justify-between min-h-[400px]">
           
           {/* Decorative glow background */}
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
@@ -275,6 +279,7 @@ export default function WickedChamber({ challengesHistory, onGenerate, isLoading
             )}
           </AnimatePresence>
         </div>
+        </TiltCard>
       </div>
 
       {/* History Log Panel */}

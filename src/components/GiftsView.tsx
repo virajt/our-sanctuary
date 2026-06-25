@@ -3,6 +3,9 @@ import { SensoryGift } from "../types";
 import { apiFetch } from "../lib/apiFetch";
 import { Gift, Heart, Sparkles, CheckCircle2, ChevronRight, Flame, Plus, Trash2, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import TiltCard from "./effects/TiltCard";
+import Reveal from "./effects/Reveal";
+import MagneticButton from "./effects/MagneticButton";
 
 interface GiftsViewProps {
   gifts: SensoryGift[];
@@ -114,13 +117,13 @@ export default function GiftsView({ gifts, onClaim, onRedeem, onAddGift, onDelet
             </select>
           </div>
 
-          <button
+          <MagneticButton
             onClick={() => setIsAdding(!isAdding)}
-            className="flex items-center gap-2 px-4 py-2 bg-red-900/60 hover:bg-red-800 text-white border border-red-700/50 text-xs font-semibold rounded-2xl shadow-lg hover:shadow-red-950/15 transition-all active:scale-95 cursor-pointer glow-red"
+            className="flex items-center gap-2 px-4 py-2 bg-red-900/60 hover:bg-red-800 text-white border border-red-700/50 text-xs font-semibold rounded-2xl shadow-lg hover:shadow-red-950/15 transition-all cursor-pointer glow-red"
           >
             <Plus className="w-4 h-4" />
             Create Sensual Voucher
-          </button>
+          </MagneticButton>
         </div>
       </div>
 
@@ -224,19 +227,20 @@ export default function GiftsView({ gifts, onClaim, onRedeem, onAddGift, onDelet
       {/* Gifts Responsive Grid Display */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         
-        {filteredGifts.map((gift) => {
+        {filteredGifts.map((gift, index) => {
           const catStyle = getCategoryColor(gift.category);
           
           return (
+            <Reveal key={gift.id} delay={Math.min(index * 0.04, 0.4)}>
+            <TiltCard maxTilt={4} glare>
             <motion.div
               layout
-              key={gift.id}
               className={`rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden transition-all duration-300 border ${
                 gift.status === "Claimed"
                   ? "bg-luxury-950/60 border-luxury-700/80 shadow-md opacity-90 shadow-luxury-950/50"
                   : gift.status === "Redeemed"
                   ? "bg-luxury-950/25 border-luxury-900/40 opacity-50 shadow-inner"
-                  : "bg-luxury-900/40 border-luxury-800 hover:border-luxury-700 hover:shadow-xl hover:-translate-y-0.5"
+                  : "bg-luxury-900/40 border-luxury-800 hover:border-luxury-700 hover:shadow-xl"
               }`}
             >
               {/* Abs decoration backdrop line */}
@@ -344,6 +348,8 @@ export default function GiftsView({ gifts, onClaim, onRedeem, onAddGift, onDelet
               </div>
 
             </motion.div>
+            </TiltCard>
+            </Reveal>
           );
         })}
 

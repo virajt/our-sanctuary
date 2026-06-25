@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { apiFetch } from "../lib/apiFetch";
+import Reveal from "./effects/Reveal";
+import MagneticButton from "./effects/MagneticButton";
 import { PeriodConfig, CycleLog, CyclePhase, PhaseProtocol } from "../types";
 import { 
   Calendar, Brain, Heart, Sparkles, Utensils, Plus, Lock, 
@@ -762,7 +764,7 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
                 >
                   Cancel
                 </button>
-                <button
+                <MagneticButton
                   type="submit"
                   className={`px-5 py-2 border text-white text-xs font-bold rounded-2xl shadow-lg transition ${
                     pregnancyMode 
@@ -771,7 +773,7 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
                   }`}
                 >
                   Recalculate Bounds
-                </button>
+                </MagneticButton>
               </div>
             </form>
           </motion.div>
@@ -979,12 +981,12 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
                 >
                   Cancel
                 </button>
-                <button
+                <MagneticButton
                   type="submit"
                   className="px-5 py-2 bg-red-900/60 hover:bg-red-800 border border-red-700/50 text-white text-xs font-bold rounded-2xl shadow-lg transition glow-red"
                 >
                   Save Log Entry
-                </button>
+                </MagneticButton>
               </div>
             </form>
           </motion.div>
@@ -1252,9 +1254,9 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-96 overflow-y-auto pr-1">
-            {logs.map((log) => (
+            {logs.map((log, index) => (
+              <Reveal key={log.id} delay={Math.min(index * 0.03, 0.3)}>
               <div 
-                key={log.id} 
                 className="bg-luxury-950/50 rounded-2xl border border-luxury-800 p-5 space-y-4 hover:border-luxury-700 transition"
               >
                 {/* log date and intimacy style title */}
@@ -1340,6 +1342,7 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
                   </div>
                 )}
               </div>
+              </Reveal>
             ))}
           </div>
         </div>

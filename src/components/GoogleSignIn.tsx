@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { ShieldCheck, Lock } from "lucide-react";
+import TiltCard from "./effects/TiltCard";
 
 interface GoogleSignInProps {
   onCredential: (idToken: string) => Promise<void>;
@@ -66,25 +67,41 @@ export default function GoogleSignIn({ onCredential, error }: GoogleSignInProps)
         />
       </div>
 
+      <TiltCard maxTilt={5} className="relative z-10 w-full max-w-md">
       <motion.div
         initial={{ opacity: 0, y: 24, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-        className="relative z-10 w-full max-w-md bg-luxury-900/60 backdrop-blur-2xl border border-luxury-800/80 rounded-[2rem] p-10 text-center space-y-8 shadow-2xl"
+        className="bg-luxury-900/60 backdrop-blur-2xl border border-luxury-800/80 rounded-[2rem] p-10 text-center space-y-8 shadow-2xl"
       >
-        <div className="mx-auto w-16 h-16 bg-red-950/30 border border-red-800/30 rounded-2xl flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="mx-auto w-16 h-16 bg-red-950/30 border border-red-800/30 rounded-2xl flex items-center justify-center"
+        >
           <Lock className="w-7 h-7 text-red-400" />
-        </div>
+        </motion.div>
 
-        <div className="space-y-2">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="space-y-2"
+        >
           <h1 className="font-serif text-4xl font-medium tracking-wide text-white">Our Sanctuary</h1>
           <p className="text-sm text-neutral-400 leading-relaxed max-w-xs mx-auto">
             A private space for the two of us. Sign in with the Google account
             we've trusted with the key.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="flex flex-col items-center gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col items-center gap-4"
+        >
           {missingClientId ? (
             <div className="text-xs text-amber-300 bg-amber-950/30 border border-amber-900/40 rounded-xl px-4 py-3 text-left leading-relaxed">
               Google Sign-In isn't configured yet. Set <code className="font-mono">GOOGLE_CLIENT_ID</code> as an
@@ -99,13 +116,19 @@ export default function GoogleSignIn({ onCredential, error }: GoogleSignInProps)
               {error}
             </p>
           )}
-        </div>
+        </motion.div>
 
-        <div className="flex items-center justify-center gap-2 text-[10px] text-neutral-500 font-mono uppercase tracking-widest pt-2 border-t border-luxury-800/60">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6, duration: 0.5 }}
+          className="flex items-center justify-center gap-2 text-[10px] text-neutral-500 font-mono uppercase tracking-widest pt-2 border-t border-luxury-800/60"
+        >
           <ShieldCheck className="w-3.5 h-3.5 text-neutral-500" />
           Access limited to whitelisted accounts only
-        </div>
+        </motion.div>
       </motion.div>
+      </TiltCard>
     </div>
   );
 }
