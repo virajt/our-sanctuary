@@ -21,3 +21,4 @@ View your app in AI Studio: https://ai.studio/apps/ffbd97e6-798c-4e5b-8687-95b9f
 
 <!-- build trace 2026-06-25T02:59:39Z -->
 <!-- clean single-trigger build 2026-06-25T03:05:01Z -->
+<!-- testing repository-mode cloudbuild.yaml trigger 2026-06-25T03:21:59Z -->
