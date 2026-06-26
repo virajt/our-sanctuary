@@ -561,7 +561,7 @@ app.delete("/api/dates/:id", asyncRoute(async (req: Request, res: Response) => {
 // photo), so this is a direct collection write, not a transaction.
 app.post("/api/gift-purchases", asyncRoute(async (req: Request, res: Response) => {
   const { title, description, category, photoUrl, buyer, price } = req.body;
-  if (!title || !description || !category || !buyer) {
+  if (!title || !category || !buyer) {
      res.status(400).json({ error: "Missing required physical gift details" });
      return;
   }
@@ -569,7 +569,7 @@ app.post("/api/gift-purchases", asyncRoute(async (req: Request, res: Response) =
   const purchase: GiftPurchase = {
     id: `purchase_${Date.now()}`,
     title,
-    description,
+    description: description || "",
     category,
     photoUrl: photoUrl || "",
     buyer,

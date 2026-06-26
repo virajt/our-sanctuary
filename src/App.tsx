@@ -118,6 +118,21 @@ export default function App() {
     return () => window.removeEventListener("sanctuary:unauthorized", handler);
   }, []);
 
+  // Surface any other failed save/action as a brief toast, instead of it
+  // silently doing nothing - confirmed as a real bug (gift purchase saves
+  // failing validation with zero visible feedback).
+  const [errorToast, setErrorToast] = useState<string | null>(null);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setErrorToast(detail?.message || "Something went wrong. Please try again.");
+      window.clearTimeout((window as any).__sanctuaryToastTimer);
+      (window as any).__sanctuaryToastTimer = window.setTimeout(() => setErrorToast(null), 5000);
+    };
+    window.addEventListener("sanctuary:apiError", handler);
+    return () => window.removeEventListener("sanctuary:apiError", handler);
+  }, []);
+
   // API Call Helpers to sync with server Node container
   const handleClaimGift = async (id: string, claimedBy: "Him" | "Her") => {
     try {
@@ -541,6 +556,19 @@ export default function App() {
       <Suspense fallback={null}>
         <EmberFieldBackground theme={emberTheme} intensity="ambient" />
       </Suspense>
+
+      <AnimatePresence>
+        {errorToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.96 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-950/90 backdrop-blur-xl border border-red-800/60 text-red-200 text-sm rounded-2xl px-5 py-3 shadow-2xl max-w-md text-center"
+          >
+            {errorToast}
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* 1. PRIMARY CONTAINER */}
       <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

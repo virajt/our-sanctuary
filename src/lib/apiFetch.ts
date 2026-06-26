@@ -7,6 +7,11 @@
  * - Centralizes 401 handling: if the session has expired or been revoked
  *   (e.g. you removed someone from ALLOWED_EMAILS), every call site gets
  *   that behavior for free instead of needing to check it everywhere.
+ * - Centralizes failure visibility: any other non-2xx response broadcasts
+ *   a global event carrying the server's error message, so a failed save
+ *   surfaces to the person instead of silently doing nothing - this was a
+ *   real, confirmed bug (a gift purchase failing validation showed no
+ *   error at all, just nothing happening when you clicked submit).
  */
 export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const response = await fetch(url, {
@@ -18,6 +23,17 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
     // Let the caller see the 401 too, but also broadcast a global event so
     // the app shell can drop back to the sign-in screen immediately.
     window.dispatchEvent(new CustomEvent("sanctuary:unauthorized"));
+  } else if (!response.ok) {
+    // Clone the response so the caller can still read its body themselves
+    // if they want to (Response bodies can only be read once).
+    let message = "Something went wrong saving that. Please try again.";
+    try {
+      const data = await response.clone().json();
+      if (data?.error) message = data.error;
+    } catch {
+      // Non-JSON error body - keep the generic message.
+    }
+    window.dispatchEvent(new CustomEvent("sanctuary:apiError", { detail: { message, status: response.status, url } }));
   }
 
   return response;
