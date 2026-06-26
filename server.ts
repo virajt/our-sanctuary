@@ -1,24 +1,23 @@
 import express, { Request, Response } from "express";
 import path from "path";
-import fs from "fs";
-import cookieParser from "cookie-parser";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
-import { 
-  SensoryGift, 
-  SanctuaryDB, 
-  WickedChallenge, 
-  VaultPhoto, 
-  CycleLog, 
-  PeriodConfig, 
+import cookieParser from "cookie-parser";
+import {
+  SensoryGift,
+  SanctuaryDB,
+  WickedChallenge,
+  VaultPhoto,
+  CycleLog,
+  PeriodConfig,
   AdminSettings,
   ImportantDate,
   GiftPurchase,
   CycleTrackerDB
 } from "./src/types";
-import { 
-  generateProceduralWicked, 
-  generateProceduralPhotoPrompt 
+import {
+  generateProceduralWicked,
+  generateProceduralPhotoPrompt
 } from "./server/generators";
 import {
   verifyGoogleIdToken,
@@ -27,6 +26,18 @@ import {
   getSession,
   requireAuth
 } from "./server/auth";
+import {
+  readDB,
+  writeDB,
+  readCycleDB,
+  writeCycleDB,
+  addVaultPhoto,
+  deleteVaultPhoto,
+  addGiftPurchase,
+  deleteGiftPurchase,
+  withSanctuaryTransaction,
+  withCycleTransaction
+} from "./server/firestoreDb";
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -74,6 +85,37 @@ app.post("/api/auth/logout", (req: Request, res: Response) => {
 // --- Everything below this line requires a valid, whitelisted session ---
 app.use("/api", requireAuth);
 
+// Wraps an async route handler so a rejected promise (e.g. Firestore being
+// briefly unreachable, a misconfigured credential, a transient network
+// blip) becomes a clean JSON 500 response instead of an unhandled
+// rejection that crashes the entire Node process. Without this, a single
+// failed database call could take down every other in-flight request on
+// this container, not just the one that failed - confirmed directly while
+// testing this migration: a Firestore connection issue crashed the whole
+// server instead of just failing one request.
+function asyncRoute(
+  handler: (req: Request, res: Response) => Promise<void>
+) {
+  return (req: Request, res: Response) => {
+    handler(req, res).catch((err) => {
+      console.error(`[error] ${req.method} ${req.path} failed:`, err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Something went wrong on our end. Please try again." });
+      }
+    });
+  };
+}
+
+// Last-resort safety nets. These should rarely fire if asyncRoute is used
+// consistently below, but they exist so a truly unexpected error logs
+// clearly instead of silently killing the process with no trace.
+process.on("unhandledRejection", (reason) => {
+  console.error("[fatal] Unhandled promise rejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[fatal] Uncaught exception:", err);
+});
+
 // Initialize Gemini SDK with User-Agent required header
 const apiKey = process.env.GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;
@@ -95,364 +137,42 @@ if (apiKey && apiKey !== "MY_GEMINI_API_KEY") {
   console.log("No valid GEMINI_API_KEY detected. Running in elegant procedural-generation fallback mode.");
 }
 
-// Ensure database directory exists
-const DB_DIR = path.join(process.cwd(), "data");
-const DB_FILE = path.join(DB_DIR, "sanctuary_db.json");
-const CYCLE_DB_FILE = path.join(DB_DIR, "cycle_tracker_db.json");
-
-if (!fs.existsSync(DB_DIR)) {
-  fs.mkdirSync(DB_DIR, { recursive: true });
-}
-
-// Default Cycle Tracker Database seeding config
-const DEFAULT_CYCLE_DB: CycleTrackerDB = {
-  periodConfig: {
-    lastPeriodDate: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    cycleLength: 28,
-    periodLength: 5,
-    pregnancyMode: false,
-    pregnancyStartDate: ""
-  },
-  cycleLogs: []
-};
-
-// Database Migration Helper
-function migrateCycleData() {
-  const mainDbExists = fs.existsSync(DB_FILE);
-  const cycleDbExists = fs.existsSync(CYCLE_DB_FILE);
-
-  if (!cycleDbExists) {
-    let migratedConfig = DEFAULT_CYCLE_DB.periodConfig;
-    let migratedLogs = DEFAULT_CYCLE_DB.cycleLogs;
-
-    if (mainDbExists) {
-      try {
-        const content = fs.readFileSync(DB_FILE, "utf-8");
-        const mainData = JSON.parse(content);
-        let updated = false;
-
-        if (mainData.periodConfig) {
-          migratedConfig = {
-            ...DEFAULT_CYCLE_DB.periodConfig,
-            ...mainData.periodConfig
-          };
-          delete mainData.periodConfig;
-          updated = true;
-        }
-        if (mainData.cycleLogs) {
-          migratedLogs = mainData.cycleLogs;
-          delete mainData.cycleLogs;
-          updated = true;
-        }
-
-        if (updated) {
-          fs.writeFileSync(DB_FILE, JSON.stringify(mainData, null, 2), "utf-8");
-          console.log("Successfully migrated cycle data out of sanctuary_db.json");
-        }
-      } catch (err: any) {
-        console.error("Failed to parse or clean main db during migration:", err);
-      }
-    }
-
-    const cycleDbData: CycleTrackerDB = {
-      periodConfig: migratedConfig,
-      cycleLogs: migratedLogs
-    };
-    try {
-      fs.writeFileSync(CYCLE_DB_FILE, JSON.stringify(cycleDbData, null, 2), "utf-8");
-      console.log("Successfully created cycle_tracker_db.json with migrated data");
-    } catch (err: any) {
-      console.error("Failed to write migrated cycle tracker db:", err);
-    }
-  } else {
-    if (mainDbExists) {
-      try {
-        const content = fs.readFileSync(DB_FILE, "utf-8");
-        const mainData = JSON.parse(content);
-        let updated = false;
-        if (mainData.periodConfig) {
-          delete mainData.periodConfig;
-          updated = true;
-        }
-        if (mainData.cycleLogs) {
-          delete mainData.cycleLogs;
-          updated = true;
-        }
-        if (updated) {
-          fs.writeFileSync(DB_FILE, JSON.stringify(mainData, null, 2), "utf-8");
-          console.log("Cleaned leftover cycle fields from sanctuary_db.json");
-        }
-      } catch (err) {
-        // ignore
-      }
-    }
-  }
-}
-
-migrateCycleData();
-
-// Seeding Default Database
-const DEFAULT_GIFTS: SensoryGift[] = [
-  {
-    id: "gift_1",
-    title: "Sensual Warm Oil Massage",
-    description: "A 30-minute full body massage. Lights fully dimmed, sensual ambient music playing, and absolute focus on slow, comforting, or ticklesome touches.",
-    category: "Sensual",
-    receiver: "Her",
-    status: "Available"
-  },
-  {
-    id: "gift_2",
-    title: "Sensory Silk & Ice Challenge",
-    description: "One partner lays down, blindfolded. The other traces their body with silk feathers, followed by sudden, teasing dragging of a cold ice cube across warm skin creases.",
-    category: "Wicked",
-    receiver: "Together",
-    status: "Available"
-  },
-  {
-    id: "gift_3",
-    title: "Candlelit Bath & Champagne",
-    description: "A warm bubble bath prepared with rose petals, custom bath salts, candlelight, soft instrumental music, and two cold glasses of bubbly to feed each other.",
-    category: "Intimate",
-    receiver: "Her",
-    status: "Available"
-  },
-  {
-    id: "gift_4",
-    title: "Breakfast in Bed with Gourmet Whispers",
-    description: "Gourmet freshly-made waffles or croissants with strawberries and whipped cream eaten direct on-body, accompanied by whispering three secret fantasies details in each other's ears.",
-    category: "Pampering",
-    receiver: "Him",
-    status: "Available"
-  },
-  {
-    id: "gift_5",
-    title: "The Silent Submission Command",
-    description: "A playful command game. One partner must remain fully motionless and silent for 15 minutes, allowing the other to pamper, kiss, trace, and tease them entirely to their liking.",
-    category: "Wicked",
-    receiver: "Him",
-    status: "Available"
-  }
-];
-
-const DEFAULT_DB: SanctuaryDB = {
-  gifts: DEFAULT_GIFTS,
-  cycleLogs: [],
-  periodConfig: {
-    lastPeriodDate: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // Seed: started 12 days ago (ovulation zone)
-    cycleLength: 28,
-    periodLength: 5
-  },
-  wickedChallengesHistory: [],
-  vaultPhotos: [],
-  adminSettings: {
-    vibeIntensity: "Medium",
-    wickedActions: [],
-    wickedBodyParts: [],
-    photoThemes: [],
-    photoSetups: [],
-    periodRemindersEnabled: true,
-    theme: "Passionate Red"
-  },
-  importantDates: [
-    {
-      id: "date_1",
-      title: "Our Sacred Union Anniversary",
-      date: `${new Date().getFullYear()}-10-24`,
-      category: "Anniversary",
-      description: "Celebrating the beautiful day we became one Sanctuary.",
-      reminderDaysAhead: 7
-    },
-    {
-      id: "date_2",
-      title: "My Wife's Divine Birthday",
-      date: `${new Date().getFullYear()}-05-18`,
-      category: "Birthday",
-      description: "Celebrating my queen's special day. Pampering is non-negotiable.",
-      reminderDaysAhead: 3
-    }
-  ],
-  giftPurchases: [
-    {
-      id: "purchase_1",
-      title: "Obsidian Sheer Lace Bodysuit",
-      description: "A luxury dark lace bodysuit purchased to celebrate her silhouette. Incredible soft tactile feel.",
-      category: "Lingerie",
-      buyer: "Him",
-      price: "$89.00",
-      photoUrl: "", // blank, to trigger fallback layout beautifully
-      timestamp: new Date().toISOString()
-    }
-  ],
-  kitchenDishes: [
-    {
-      id: "dish_1",
-      title: "Sacred Golden Saffron Egg Frittata",
-      description: "A fluffy, beautiful organic egg frittata baked with fresh baby spinach, crumbled paneer cheese, a pinch of aromatic saffron strands, and cherry tomatoes. Served warm with clean toasted sourdough.",
-      ingredients: ["4 Organic Eggs", "100g Paneer Cheese", "1 cup Baby Spinach", "6 Cherry Tomatoes", "Pinch of Saffron Strands", "1 tbsp Olive Oil", "Salt & fresh Black Pepper"],
-      instructions: [
-        "Preheat your small skillet with olive oil over medium-low heat.",
-        "Whisk the organic eggs with saffron strands, salt, and pepper.",
-        "Add spinach and halved cherry tomatoes to the skillet until slightly wilted.",
-        "Pour over the egg mixture and scatter crumbled paneer on top.",
-        "Cook slowly under a lid until fluffy and set, about 6-8 minutes. Worship and share in bed!"
-      ],
-      phase: "Luteal",
-      notes: "Incredibly warming and rich. Melted her period anxiety right away!",
-      rating: 5,
-      hasEggs: true,
-      timestamp: new Date().toISOString()
-    },
-    {
-      id: "dish_2",
-      title: "Iron-Rich Curried Lentil & Spinach Stew",
-      description: "Cozy red lentils slowly simmered in ground turmeric, grated ginger, and rich coconut milk, topped with a generous fold of iron-dense spinach. Finished with a drizzle of lime juice.",
-      ingredients: ["1 cup Red Lentils (washed)", "2 cups fresh Spinach", "1 tbsp fresh Ginger (grated)", "1 tsp Turmeric Powder", "1 can light Coconut Milk", "1 lime", "Fresh cilantro"],
-      instructions: [
-        "In a saucepan, bring washed red lentils and coconut milk/water mixture to a simmer.",
-        "Stir in turmeric powder and freshly grated ginger, keeping heat light.",
-        "Simmer for 15-20 minutes until lentils are soft and buttery.",
-        "Turn off the heat and fold in fresh baby spinach leaves until wilted.",
-        "Drizzle with lemon/lime juice and top with fresh chopped cilantro. Perfect restorative menstrual day bowl!"
-      ],
-      phase: "Menstrual",
-      notes: "Provides vital non-heme iron and anti-inflammatory ginger.",
-      rating: 5,
-      hasEggs: false,
-      timestamp: new Date().toISOString()
-    }
-  ]
-};
-
-// Simple async mutex. Every route handler that reads-then-writes the JSON
-// database wraps its body in withDataLock(...) so two near-simultaneous
-// requests (e.g. both of you tapping "claim gift" at once) can't both read
-// the same snapshot and then overwrite each other's change - they're
-// queued and run one at a time instead.
-let dataLockQueue: Promise<void> = Promise.resolve();
-function withDataLock<T>(fn: () => T | Promise<T>): Promise<T> {
-  const run = dataLockQueue.then(fn, fn);
-  dataLockQueue = run.then(
-    () => undefined,
-    () => undefined
-  );
-  return run;
-}
-
-// Database I/O Helpers
+// --- Database access ---
+// All read/write logic now lives in server/firestoreDb.ts, backed by
+// Firestore instead of a JSON file on a GCS FUSE volume mount. The old
+// approach had two real bugs: GCS FUSE provides no file-locking for
+// concurrent writes ("last write wins, all previous writes are lost" -
+// straight from Google's own docs), and its 60-second stat cache could
+// serve stale reads shortly after a write, especially across the multiple
+// Cloud Run instances this service can scale to. Firestore transactions
+// (see withSanctuaryTransaction / withCycleTransaction below) are safe
+// across instances, which the old in-process mutex never was.
 //
-// Writes are made atomic (write to a temp file, then rename over the real
-// file) so a crash or concurrent read never sees a half-written, corrupt
-// JSON file. Writes to the same file are also serialized through a tiny
-// per-file queue so two near-simultaneous requests (e.g. both of you tapping
-// at once) can't race and silently drop one person's update.
-const writeQueues = new Map<string, Promise<void>>();
+// readDB/writeDB/readCycleDB/writeCycleDB are now async (they make network
+// calls to Firestore instead of synchronous fs calls) - every call site
+// below has been updated to await them.
 
-function atomicWriteSync(filePath: string, data: unknown) {
-  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), "utf-8");
-  fs.renameSync(tmpPath, filePath);
-}
-
-function queuedWrite(filePath: string, data: unknown): Promise<void> {
-  const previous = writeQueues.get(filePath) || Promise.resolve();
-  const next = previous
-    .catch(() => {
-      /* swallow previous failure so the queue keeps moving */
-    })
-    .then(() => {
-      atomicWriteSync(filePath, data);
-    });
-  writeQueues.set(filePath, next);
-  return next;
-}
-
-function readDB(): SanctuaryDB {
-  try {
-    if (fs.existsSync(DB_FILE)) {
-      const content = fs.readFileSync(DB_FILE, "utf-8");
-      const data = JSON.parse(content);
-      // Ensure new database fields are initialized
-      if (!data.importantDates) {
-        data.importantDates = [];
-      }
-      if (!data.giftPurchases) {
-        data.giftPurchases = [];
-      }
-      if (!data.kitchenDishes) {
-        data.kitchenDishes = [];
-      }
-      return data;
-    }
-  } catch (err) {
-    console.error("Error reading database file, returning defaults. Error:", err);
-  }
-  // Write default db on creation
-  writeDB(DEFAULT_DB);
-  return DEFAULT_DB;
-}
-
-function writeDB(data: SanctuaryDB) {
-  try {
-    queuedWrite(DB_FILE, data).catch((err) => {
-      console.error("Error writing to database file:", err);
-    });
-  } catch (err) {
-    console.error("Error writing to database file:", err);
-  }
-}
-
-function readCycleDB(): CycleTrackerDB {
-  try {
-    if (fs.existsSync(CYCLE_DB_FILE)) {
-      const content = fs.readFileSync(CYCLE_DB_FILE, "utf-8");
-      const data = JSON.parse(content);
-      if (!data.periodConfig) {
-        data.periodConfig = DEFAULT_CYCLE_DB.periodConfig;
-      }
-      if (!data.cycleLogs) {
-        data.cycleLogs = [];
-      }
-      return data;
-    }
-  } catch (err) {
-    console.error("Error reading cycle database file, returning defaults. Error:", err);
-  }
-  writeCycleDB(DEFAULT_CYCLE_DB);
-  return DEFAULT_CYCLE_DB;
-}
-
-function writeCycleDB(data: CycleTrackerDB) {
-  try {
-    queuedWrite(CYCLE_DB_FILE, data).catch((err) => {
-      console.error("Error writing to cycle database file:", err);
-    });
-  } catch (err) {
-    console.error("Error writing to cycle database file:", err);
-  }
-}
 
 // API Routes
 // 1. Full Database Health & Pull
-app.get("/api/database", (req: Request, res: Response) => {
-  const db = readDB();
-  const cycleDb = readCycleDB();
+app.get("/api/database", asyncRoute(async (req: Request, res: Response) => {
+  const db = await readDB();
+  const cycleDb = await readCycleDB();
   res.json({
     ...db,
     periodConfig: cycleDb.periodConfig,
     cycleLogs: cycleDb.cycleLogs
   });
-});
+}));
 
 // 2. Sensory Gifts Endpoints
-app.post("/api/gifts", async (req: Request, res: Response) => {
+app.post("/api/gifts", asyncRoute(async (req: Request, res: Response) => {
   const { title, description, category, receiver } = req.body;
   if (!title || !description || !category || !receiver) {
      res.status(400).json({ error: "Missing required fields" });
      return;
   }
-  const newGift = await withDataLock(() => {
-    const db = readDB();
+  const newGift = await withSanctuaryTransaction((db, setDb) => {
     const gift: SensoryGift = {
       id: `gift_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       title,
@@ -462,63 +182,67 @@ app.post("/api/gifts", async (req: Request, res: Response) => {
       status: "Available",
       custom: true
     };
-    db.gifts.push(gift);
-    writeDB(db);
+    const gifts = [...db.gifts, gift];
+    setDb({ gifts });
     return gift;
   });
   res.json(newGift);
-});
+}));
 
-app.post("/api/gifts/:id/claim", async (req: Request, res: Response) => {
+app.post("/api/gifts/:id/claim", asyncRoute(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { claimedBy } = req.body; // "Him" | "Her"
   if (!claimedBy) {
      res.status(400).json({ error: "claimedBy is required" });
      return;
   }
-  const result = await withDataLock(() => {
-    const db = readDB();
+  const result = await withSanctuaryTransaction((db, setDb) => {
     const giftIndex = db.gifts.findIndex(g => g.id === id);
     if (giftIndex === -1) return null;
-    db.gifts[giftIndex].status = "Claimed";
-    db.gifts[giftIndex].claimedBy = claimedBy;
-    db.gifts[giftIndex].claimedAt = new Date().toISOString();
-    writeDB(db);
-    return db.gifts[giftIndex];
+    const gifts = [...db.gifts];
+    gifts[giftIndex] = {
+      ...gifts[giftIndex],
+      status: "Claimed",
+      claimedBy,
+      claimedAt: new Date().toISOString()
+    };
+    setDb({ gifts });
+    return gifts[giftIndex];
   });
   if (!result) {
     res.status(404).json({ error: "Gift not found" });
     return;
   }
   res.json(result);
-});
+}));
 
-app.post("/api/gifts/:id/redeem", async (req: Request, res: Response) => {
+app.post("/api/gifts/:id/redeem", asyncRoute(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await withDataLock(() => {
-    const db = readDB();
+  const result = await withSanctuaryTransaction((db, setDb) => {
     const giftIndex = db.gifts.findIndex(g => g.id === id);
     if (giftIndex === -1) return null;
-    db.gifts[giftIndex].status = "Redeemed";
-    db.gifts[giftIndex].redeemedAt = new Date().toISOString();
-    writeDB(db);
-    return db.gifts[giftIndex];
+    const gifts = [...db.gifts];
+    gifts[giftIndex] = {
+      ...gifts[giftIndex],
+      status: "Redeemed",
+      redeemedAt: new Date().toISOString()
+    };
+    setDb({ gifts });
+    return gifts[giftIndex];
   });
   if (!result) {
     res.status(404).json({ error: "Gift not found" });
     return;
   }
   res.json(result);
-});
+}));
 
-app.post("/api/gifts/:id/delete", async (req: Request, res: Response) => {
+app.post("/api/gifts/:id/delete", asyncRoute(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const found = await withDataLock(() => {
-    const db = readDB();
+  const found = await withSanctuaryTransaction((db, setDb) => {
     const filtered = db.gifts.filter(g => g.id !== id);
     if (filtered.length === db.gifts.length) return false;
-    db.gifts = filtered;
-    writeDB(db);
+    setDb({ gifts: filtered });
     return true;
   });
   if (!found) {
@@ -526,10 +250,10 @@ app.post("/api/gifts/:id/delete", async (req: Request, res: Response) => {
     return;
   }
   res.json({ success: true, message: "Gift removed successfully." });
-});
+}));
 
 // 3. Wicked Chamber Random Generation (with Gemini optimization)
-app.post("/api/wicked/generate", async (req: Request, res: Response) => {
+app.post("/api/wicked/generate", asyncRoute(async (req: Request, res: Response) => {
   const { target, intensity } = req.body; // target: "Command Him" | "Command Her" | "Together"
   if (!target) {
      res.status(400).json({ error: "target is required" });
@@ -571,24 +295,23 @@ app.post("/api/wicked/generate", async (req: Request, res: Response) => {
     }
   }
 
-  // Store in history (read fresh inside the lock, since the Gemini call
-  // above may have taken a while - using a snapshot from before the call
-  // could overwrite a change made by the other partner in the meantime)
-  await withDataLock(() => {
-    const db = readDB();
-    db.wickedChallengesHistory.unshift(baseChallenge);
+  // Store in history (Firestore transaction reads fresh state automatically
+  // - this is exactly the kind of "Gemini call took a while, don't
+  // overwrite what the other partner did in the meantime" case a real
+  // transaction protects against, even across different Cloud Run
+  // instances, unlike the old in-process mutex.)
+  await withSanctuaryTransaction((db, setDb) => {
+    const history = [baseChallenge, ...db.wickedChallengesHistory];
     // Keep history manageable (last 50 items)
-    if (db.wickedChallengesHistory.length > 50) {
-      db.wickedChallengesHistory.pop();
-    }
-    writeDB(db);
+    if (history.length > 50) history.pop();
+    setDb({ wickedChallengesHistory: history });
   });
 
   res.json(baseChallenge);
-});
+}));
 
 // 4. Private Gallery Photo Prompt Generation
-app.post("/api/gallery/prompt", async (req: Request, res: Response) => {
+app.post("/api/gallery/prompt", asyncRoute(async (req: Request, res: Response) => {
   const { target } = req.body;
   if (!target) {
      res.status(400).json({ error: "target is required" });
@@ -641,10 +364,10 @@ app.post("/api/gallery/prompt", async (req: Request, res: Response) => {
   }
 
   res.json(basePrompt);
-});
+}));
 
 // 5. Private Gallery Upload & AI Captioning
-app.post("/api/gallery/upload", async (req: Request, res: Response) => {
+app.post("/api/gallery/upload", asyncRoute(async (req: Request, res: Response) => {
   const { imageUrl, promptText, target } = req.body;
   if (!imageUrl || !promptText || !target) {
      res.status(400).json({ error: "imageUrl, promptText and target are required." });
@@ -702,57 +425,46 @@ app.post("/api/gallery/upload", async (req: Request, res: Response) => {
     captionGeneratedByAI: capByAI
   };
 
-  await withDataLock(() => {
-    const db = readDB();
-    db.vaultPhotos.unshift(newPhoto);
-    writeDB(db);
-  });
+  await addVaultPhoto(newPhoto);
 
   res.json(newPhoto);
-});
+}));
 
-app.post("/api/gallery/delete/:id", async (req: Request, res: Response) => {
+app.post("/api/gallery/delete/:id", asyncRoute(async (req: Request, res: Response) => {
   const { id } = req.params;
-  await withDataLock(() => {
-    const db = readDB();
-    db.vaultPhotos = db.vaultPhotos.filter(p => p.id !== id);
-    writeDB(db);
-  });
+  await deleteVaultPhoto(id);
   res.json({ success: true });
-});
+}));
 
 // 6. Period Tracker Configuration
-app.post("/api/period/config", async (req: Request, res: Response) => {
+app.post("/api/period/config", asyncRoute(async (req: Request, res: Response) => {
   const { lastPeriodDate, cycleLength, periodLength, pregnancyMode, pregnancyStartDate } = req.body;
   if (!lastPeriodDate || !cycleLength || !periodLength) {
      res.status(400).json({ error: "Missing config variables" });
      return;
   }
-  const config = await withDataLock(() => {
-    const cycleDb = readCycleDB();
-    cycleDb.periodConfig = {
+  const config = await withCycleTransaction((cycleDb, setCycleDb) => {
+    const periodConfig: PeriodConfig = {
       lastPeriodDate,
       cycleLength: parseInt(cycleLength),
       periodLength: parseInt(periodLength),
       pregnancyMode: !!pregnancyMode,
       pregnancyStartDate: pregnancyStartDate || ""
     };
-    writeCycleDB(cycleDb);
-    return cycleDb.periodConfig;
+    setCycleDb({ periodConfig });
+    return periodConfig;
   });
   res.json(config);
-});
+}));
 
 // 7. Add Period Daily Symtoms Log
-app.post("/api/period/log", async (req: Request, res: Response) => {
+app.post("/api/period/log", asyncRoute(async (req: Request, res: Response) => {
   const { date, symptoms, moods, intimacyLevel, notes, flow, temperature, weight, waterIntake, sleepDuration, sex } = req.body;
   if (!date || !symptoms || !moods || !intimacyLevel) {
      res.status(400).json({ error: "Missing required daily credentials" });
      return;
   }
-  const logItem = await withDataLock(() => {
-    const cycleDb = readCycleDB();
-
+  const logItem = await withCycleTransaction((cycleDb, setCycleDb) => {
     // check if log for same date already exists, overwrite if yes
     const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === date);
     const item: CycleLog = {
@@ -770,24 +482,24 @@ app.post("/api/period/log", async (req: Request, res: Response) => {
       sex: sex || "None"
     };
 
+    const cycleLogs = [...cycleDb.cycleLogs];
     if (existingIndex !== -1) {
-      cycleDb.cycleLogs[existingIndex] = item;
+      cycleLogs[existingIndex] = item;
     } else {
-      cycleDb.cycleLogs.unshift(item);
+      cycleLogs.unshift(item);
     }
 
-    writeCycleDB(cycleDb);
+    setCycleDb({ cycleLogs });
     return item;
   });
   res.json(logItem);
-});
+}));
 
 // 8. Admin Settings Update
-app.post("/api/admin/settings", async (req: Request, res: Response) => {
+app.post("/api/admin/settings", asyncRoute(async (req: Request, res: Response) => {
   const { vibeIntensity, periodRemindersEnabled, wickedActions, wickedBodyParts, photoThemes, photoSetups, theme } = req.body;
-  const settings = await withDataLock(() => {
-    const db = readDB();
-    db.adminSettings = {
+  const settings = await withSanctuaryTransaction((db, setDb) => {
+    const adminSettings: AdminSettings = {
       vibeIntensity: vibeIntensity || db.adminSettings.vibeIntensity,
       periodRemindersEnabled: periodRemindersEnabled !== undefined ? periodRemindersEnabled : db.adminSettings.periodRemindersEnabled,
       wickedActions: wickedActions || db.adminSettings.wickedActions,
@@ -796,22 +508,21 @@ app.post("/api/admin/settings", async (req: Request, res: Response) => {
       photoSetups: photoSetups || db.adminSettings.photoSetups,
       theme: theme || db.adminSettings.theme || "Passionate Red"
     };
-    writeDB(db);
-    return db.adminSettings;
+    setDb({ adminSettings });
+    return adminSettings;
   });
   res.json(settings);
-});
+}));
 
 
 // 9. Important Dates System (Task 1)
-app.post("/api/dates", async (req: Request, res: Response) => {
+app.post("/api/dates", asyncRoute(async (req: Request, res: Response) => {
   const { id, title, date, category, description, reminderDaysAhead } = req.body;
   if (!title || !date || !category) {
      res.status(400).json({ error: "Missing required title, date, or category" });
      return;
   }
-  const dateItem = await withDataLock(() => {
-    const db = readDB();
+  const dateItem = await withSanctuaryTransaction((db, setDb) => {
     const dateId = id || `date_${Date.now()}`;
     const existingIndex = db.importantDates.findIndex(d => d.id === dateId);
     const item: ImportantDate = {
@@ -823,82 +534,74 @@ app.post("/api/dates", async (req: Request, res: Response) => {
       reminderDaysAhead: Number(reminderDaysAhead) || 0
     };
 
+    const importantDates = [...db.importantDates];
     if (existingIndex !== -1) {
-      db.importantDates[existingIndex] = item;
+      importantDates[existingIndex] = item;
     } else {
-      db.importantDates.push(item);
+      importantDates.push(item);
     }
 
-    writeDB(db);
+    setDb({ importantDates });
     return item;
   });
   res.json(dateItem);
-});
+}));
 
-app.delete("/api/dates/:id", async (req: Request, res: Response) => {
+app.delete("/api/dates/:id", asyncRoute(async (req: Request, res: Response) => {
   const { id } = req.params;
-  await withDataLock(() => {
-    const db = readDB();
-    db.importantDates = db.importantDates.filter(d => d.id !== id);
-    writeDB(db);
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ importantDates: db.importantDates.filter(d => d.id !== id) });
   });
   res.json({ success: true, message: "Date notification deleted" });
-});
+}));
 
 
 // 10. Gift Purchases Log with Photo Support (Task 4)
-app.post("/api/gift-purchases", async (req: Request, res: Response) => {
+// Each purchase is its own Firestore document (it can contain a base64
+// photo), so this is a direct collection write, not a transaction.
+app.post("/api/gift-purchases", asyncRoute(async (req: Request, res: Response) => {
   const { title, description, category, photoUrl, buyer, price } = req.body;
   if (!title || !description || !category || !buyer) {
      res.status(400).json({ error: "Missing required physical gift details" });
      return;
   }
 
-  const newPurchase = await withDataLock(() => {
-    const db = readDB();
-    const purchase: GiftPurchase = {
-      id: `purchase_${Date.now()}`,
-      title,
-      description,
-      category,
-      photoUrl: photoUrl || "",
-      buyer,
-      price: price || "",
-      timestamp: new Date().toISOString()
-    };
-    db.giftPurchases.unshift(purchase);
-    writeDB(db);
-    return purchase;
-  });
-  res.json(newPurchase);
-});
+  const purchase: GiftPurchase = {
+    id: `purchase_${Date.now()}`,
+    title,
+    description,
+    category,
+    photoUrl: photoUrl || "",
+    buyer,
+    price: price || "",
+    timestamp: new Date().toISOString()
+  };
+  await addGiftPurchase(purchase);
+  res.json(purchase);
+}));
 
-app.delete("/api/gift-purchases/:id", async (req: Request, res: Response) => {
+app.delete("/api/gift-purchases/:id", asyncRoute(async (req: Request, res: Response) => {
   const { id } = req.params;
-  await withDataLock(() => {
-    const db = readDB();
-    db.giftPurchases = db.giftPurchases.filter(p => p.id !== id);
-    writeDB(db);
-  });
+  await deleteGiftPurchase(id);
   res.json({ success: true, message: "Purchase deleted successfully" });
-});
+}));
 
 
 // 11. Period Tracker Bulk Import (Task 3)
-app.post("/api/period/import", async (req: Request, res: Response) => {
+app.post("/api/period/import", asyncRoute(async (req: Request, res: Response) => {
   const { logs, config } = req.body;
   if (!Array.isArray(logs)) {
      res.status(400).json({ error: "Logs payload must be an array of daily states list." });
      return;
   }
 
-  const result = await withDataLock(() => {
-    const cycleDb = readCycleDB();
+  const result = await withCycleTransaction((cycleDb, setCycleDb) => {
     let mergedCount = 0;
+    const cycleLogs = [...cycleDb.cycleLogs];
 
     logs.forEach((importedLog) => {
       if (!importedLog.date) return;
-      const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === importedLog.date);
+      const existingIndex = cycleLogs.findIndex(l => l.date === importedLog.date);
       const logItem: CycleLog = {
         id: importedLog.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         date: importedLog.date,
@@ -915,34 +618,35 @@ app.post("/api/period/import", async (req: Request, res: Response) => {
       };
 
       if (existingIndex !== -1) {
-        cycleDb.cycleLogs[existingIndex] = logItem;
+        cycleLogs[existingIndex] = logItem;
       } else {
-        cycleDb.cycleLogs.push(logItem);
+        cycleLogs.push(logItem);
       }
       mergedCount++;
     });
 
     // Sort chronologically descending
-    cycleDb.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+    const periodConfig: PeriodConfig = { ...cycleDb.periodConfig };
     if (config) {
-      if (config.lastPeriodDate) cycleDb.periodConfig.lastPeriodDate = config.lastPeriodDate;
-      if (config.cycleLength) cycleDb.periodConfig.cycleLength = Number(config.cycleLength);
-      if (config.periodLength) cycleDb.periodConfig.periodLength = Number(config.periodLength);
-      if (config.pregnancyMode !== undefined) cycleDb.periodConfig.pregnancyMode = !!config.pregnancyMode;
-      if (config.pregnancyStartDate !== undefined) cycleDb.periodConfig.pregnancyStartDate = config.pregnancyStartDate;
+      if (config.lastPeriodDate) periodConfig.lastPeriodDate = config.lastPeriodDate;
+      if (config.cycleLength) periodConfig.cycleLength = Number(config.cycleLength);
+      if (config.periodLength) periodConfig.periodLength = Number(config.periodLength);
+      if (config.pregnancyMode !== undefined) periodConfig.pregnancyMode = !!config.pregnancyMode;
+      if (config.pregnancyStartDate !== undefined) periodConfig.pregnancyStartDate = config.pregnancyStartDate;
     }
 
-    writeCycleDB(cycleDb);
-    return { count: mergedCount, periodConfig: cycleDb.periodConfig, logsCount: cycleDb.cycleLogs.length };
+    setCycleDb({ cycleLogs, periodConfig });
+    return { count: mergedCount, periodConfig, logsCount: cycleLogs.length };
   });
 
   res.json({ success: true, ...result });
-});
+}));
 
 
 // 11b. Period Tracker PDF/Screenshot AI Import Supporting Route
-app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
+app.post("/api/period/import-pdf", asyncRoute(async (req: Request, res: Response) => {
   const { pdfData } = req.body;
   if (!pdfData) {
     res.status(400).json({ error: "Missing pdfData payload (base64 string required)." });
@@ -1039,16 +743,15 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
       if (response && response.text) {
         const parsedData = JSON.parse(response.text.trim());
 
-        const result = await withDataLock(() => {
-          const cycleDb = readCycleDB();
-
+        const result = await withCycleTransaction((cycleDb, setCycleDb) => {
           const logs = parsedData.logs || [];
           const config = parsedData.periodConfig;
+          const cycleLogs = [...cycleDb.cycleLogs];
 
           let mergedCount = 0;
           logs.forEach((importedLog: any) => {
             if (!importedLog.date) return;
-            const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === importedLog.date);
+            const existingIndex = cycleLogs.findIndex(l => l.date === importedLog.date);
             const logItem: CycleLog = {
               id: importedLog.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
               date: importedLog.date,
@@ -1065,28 +768,29 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
             };
 
             if (existingIndex !== -1) {
-              cycleDb.cycleLogs[existingIndex] = logItem;
+              cycleLogs[existingIndex] = logItem;
             } else {
-              cycleDb.cycleLogs.push(logItem);
+              cycleLogs.push(logItem);
             }
             mergedCount++;
           });
 
           // Sort chronologically descending
-          cycleDb.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+          const periodConfig: PeriodConfig = { ...cycleDb.periodConfig };
           if (config) {
-            if (config.lastPeriodDate) cycleDb.periodConfig.lastPeriodDate = config.lastPeriodDate;
-            if (config.cycleLength) cycleDb.periodConfig.cycleLength = Number(config.cycleLength);
-            if (config.periodLength) cycleDb.periodConfig.periodLength = Number(config.periodLength);
+            if (config.lastPeriodDate) periodConfig.lastPeriodDate = config.lastPeriodDate;
+            if (config.cycleLength) periodConfig.cycleLength = Number(config.cycleLength);
+            if (config.periodLength) periodConfig.periodLength = Number(config.periodLength);
           }
 
-          writeCycleDB(cycleDb);
+          setCycleDb({ cycleLogs, periodConfig });
 
           return {
             count: mergedCount,
-            periodConfig: cycleDb.periodConfig,
-            logsCount: cycleDb.cycleLogs.length,
+            periodConfig,
+            logsCount: cycleLogs.length,
             extractedLogs: logs
           };
         });
@@ -1134,26 +838,24 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
       });
     }
 
-    const result = await withDataLock(() => {
-      const cycleDb = readCycleDB();
-
+    const result = await withCycleTransaction((cycleDb, setCycleDb) => {
+      const cycleLogs = [...cycleDb.cycleLogs];
       generatedLogs.forEach((mockLog) => {
-        const existingIndex = cycleDb.cycleLogs.findIndex(l => l.date === mockLog.date);
+        const existingIndex = cycleLogs.findIndex(l => l.date === mockLog.date);
         if (existingIndex !== -1) {
-          cycleDb.cycleLogs[existingIndex] = mockLog;
+          cycleLogs[existingIndex] = mockLog;
         } else {
-          cycleDb.cycleLogs.push(mockLog);
+          cycleLogs.push(mockLog);
         }
       });
 
-      cycleDb.cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      cycleDb.periodConfig = generatedConfig;
+      cycleLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-      writeCycleDB(cycleDb);
+      setCycleDb({ cycleLogs, periodConfig: generatedConfig });
 
       return {
-        periodConfig: cycleDb.periodConfig,
-        logsCount: cycleDb.cycleLogs.length
+        periodConfig: generatedConfig,
+        logsCount: cycleLogs.length
       };
     });
 
@@ -1168,12 +870,12 @@ app.post("/api/period/import-pdf", async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: "Failed simulated data builder fallback: " + err.message });
   }
-});
+}));
 
 // 11c. Period Tracker Export Route
-app.get("/api/period/export", (req: Request, res: Response) => {
+app.get("/api/period/export", asyncRoute(async (req: Request, res: Response) => {
   const format = req.query.format as string;
-  const cycleDb = readCycleDB();
+  const cycleDb = await readCycleDB();
 
   if (format === "csv") {
     // Generate CSV
@@ -1207,11 +909,11 @@ app.get("/api/period/export", (req: Request, res: Response) => {
     res.setHeader("Content-Disposition", "attachment; filename=cycle_tracker_export.json");
     res.send(JSON.stringify(cycleDb, null, 2));
   }
-});
+}));
 
 
 // 12. Sensory Voucher Generation API
-app.post("/api/gifts/generate", async (req: Request, res: Response) => {
+app.post("/api/gifts/generate", asyncRoute(async (req: Request, res: Response) => {
   const { category, receiver } = req.body;
   if (!category || !receiver) {
     res.status(400).json({ error: "category and receiver are required." });
@@ -1274,10 +976,10 @@ app.post("/api/gifts/generate", async (req: Request, res: Response) => {
   }
 
   res.json(fallback);
-});
+}));
 
 // 13. Kitchen & Vegetarian Recipes Generation API
-app.post("/api/kitchen/generate", async (req: Request, res: Response) => {
+app.post("/api/kitchen/generate", asyncRoute(async (req: Request, res: Response) => {
   const { phase, includeEggs, vibe } = req.body;
   if (!phase || !vibe) {
     res.status(400).json({ error: "phase and vibe are required." });
@@ -1440,18 +1142,17 @@ app.post("/api/kitchen/generate", async (req: Request, res: Response) => {
 
   // Fallback
   res.json(fallback);
-});
+}));
 
 // 14. Save Selected Recipe to Ledger
-app.post("/api/kitchen/save", async (req: Request, res: Response) => {
+app.post("/api/kitchen/save", asyncRoute(async (req: Request, res: Response) => {
   const { title, description, ingredients, instructions, phase, hasEggs, notes } = req.body;
   if (!title || !ingredients || !instructions) {
     res.status(400).json({ error: "Missing required recipe fields." });
     return;
   }
 
-  const newDish = await withDataLock(() => {
-    const db = readDB();
+  const newDish = await withSanctuaryTransaction((db, setDb) => {
     const dish = {
       id: `dish_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       title,
@@ -1465,63 +1166,60 @@ app.post("/api/kitchen/save", async (req: Request, res: Response) => {
       timestamp: new Date().toISOString()
     };
 
-    db.kitchenDishes = db.kitchenDishes || [];
-    db.kitchenDishes.unshift(dish);
-    writeDB(db);
+    const kitchenDishes = [dish, ...(db.kitchenDishes || [])];
+    setDb({ kitchenDishes });
     return dish;
   });
 
   res.json(newDish);
-});
+}));
 
 // 15. Delete Recipe from Ledger
-app.delete("/api/kitchen/:id", async (req: Request, res: Response) => {
+app.delete("/api/kitchen/:id", asyncRoute(async (req: Request, res: Response) => {
   const { id } = req.params;
-  await withDataLock(() => {
-    const db = readDB();
-    db.kitchenDishes = (db.kitchenDishes || []).filter(d => d.id !== id);
-    writeDB(db);
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ kitchenDishes: (db.kitchenDishes || []).filter(d => d.id !== id) });
   });
   res.json({ success: true, message: "Dish removed successfully" });
-});
+}));
 
 // 16. Update Cooking Memory Notes
-app.post("/api/kitchen/notes/:id", async (req: Request, res: Response) => {
+app.post("/api/kitchen/notes/:id", asyncRoute(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { notes } = req.body;
-  const result = await withDataLock(() => {
-    const db = readDB();
-    const index = (db.kitchenDishes || []).findIndex(d => d.id === id);
+  const result = await withSanctuaryTransaction((db, setDb) => {
+    const dishes = [...(db.kitchenDishes || [])];
+    const index = dishes.findIndex(d => d.id === id);
     if (index === -1) return null;
-    db.kitchenDishes![index].notes = notes;
-    writeDB(db);
-    return db.kitchenDishes![index];
+    dishes[index] = { ...dishes[index], notes };
+    setDb({ kitchenDishes: dishes });
+    return dishes[index];
   });
   if (!result) {
     res.status(404).json({ error: "Dish not found" });
     return;
   }
   res.json(result);
-});
+}));
 
 // 17. Update Cooking Memory Love Rating (Hearts)
-app.post("/api/kitchen/rating/:id", async (req: Request, res: Response) => {
+app.post("/api/kitchen/rating/:id", asyncRoute(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { rating } = req.body;
-  const result = await withDataLock(() => {
-    const db = readDB();
-    const index = (db.kitchenDishes || []).findIndex(d => d.id === id);
+  const result = await withSanctuaryTransaction((db, setDb) => {
+    const dishes = [...(db.kitchenDishes || [])];
+    const index = dishes.findIndex(d => d.id === id);
     if (index === -1) return null;
-    db.kitchenDishes![index].rating = Number(rating);
-    writeDB(db);
-    return db.kitchenDishes![index];
+    dishes[index] = { ...dishes[index], rating: Number(rating) };
+    setDb({ kitchenDishes: dishes });
+    return dishes[index];
   });
   if (!result) {
     res.status(404).json({ error: "Dish not found" });
     return;
   }
   res.json(result);
-});
+}));
 
 
 // Vite Dev Server / Production routing
