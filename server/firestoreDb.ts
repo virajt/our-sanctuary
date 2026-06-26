@@ -8,6 +8,11 @@ import {
   firestore,
 } from "./firestore";
 import {
+  uploadDataUriToStorage,
+  deleteStorageObject,
+  getSignedUrlForObject,
+} from "./storage";
+import {
   SanctuaryDB,
   CycleTrackerDB,
   VaultPhoto,
@@ -86,26 +91,24 @@ async function migrateLegacyJsonToFirestoreIfNeeded(): Promise<void> {
       kitchenDishes: legacyMain.kitchenDishes || DEFAULT_DB_BASE.kitchenDishes,
     });
 
-    // Photos and purchases get migrated into their own collections, one
-    // document per item, since they contain base64 images (see
-    // server/firestore.ts for why this matters). Each item is written
-    // individually rather than in one batch, and a too-large item is
-    // skipped (with a clear log) rather than failing the ENTIRE migration -
-    // confirmed necessary in practice: a single oversized photo in a batch
-    // blocked every gift, setting, and other photo from migrating too,
-    // every single time the migration retried.
+    // Photos and purchases get migrated via the same addVaultPhoto /
+    // addGiftPurchase helpers used for normal uploads, which push the
+    // actual image bytes to Cloud Storage and store only a short object
+    // path in Firestore. This is the real fix for Firestore's ~1MiB
+    // document limit - the original version of this migration wrote raw
+    // base64 directly into Firestore documents, which is exactly what hit
+    // that limit and broke the entire migration the first time around
+    // (confirmed in production logs). Each item is still migrated
+    // individually so one bad item can't block everything else.
     let migratedPhotoCount = 0;
     let skippedPhotoCount = 0;
     for (const photo of legacyVaultPhotos) {
       try {
-        await vaultPhotosCollection.doc(photo.id).set(photo);
+        await addVaultPhoto(photo);
         migratedPhotoCount++;
       } catch (err) {
         skippedPhotoCount++;
-        console.error(
-          `[firestore-migration] Skipped photo ${photo.id} (likely exceeds Firestore's ~1MiB document limit - see FIRESTORE_MIGRATION.md for the long-term fix):`,
-          (err as Error).message
-        );
+        console.error(`[firestore-migration] Skipped photo ${photo.id}:`, (err as Error).message);
       }
     }
 
@@ -113,7 +116,7 @@ async function migrateLegacyJsonToFirestoreIfNeeded(): Promise<void> {
     let skippedPurchaseCount = 0;
     for (const purchase of legacyGiftPurchases) {
       try {
-        await giftPurchasesCollection.doc(purchase.id).set(purchase);
+        await addGiftPurchase(purchase);
         migratedPurchaseCount++;
       } catch (err) {
         skippedPurchaseCount++;
@@ -168,6 +171,28 @@ function ensureMigrated(): Promise<void> {
 // --- Public data-access API (mirrors the old readDB/writeDB interface as
 // closely as possible, so route handlers barely need to change) ---
 
+// Distinguishes a stored Cloud Storage object path (e.g.
+// "vault-photos/photo_123.jpg") from a legacy raw base64 data URI (e.g.
+// "data:image/png;base64,...") that might still exist on items migrated
+// before the Cloud Storage fix. Object paths never start with "data:".
+function isStorageObjectPath(value: string): boolean {
+  return !!value && !value.startsWith("data:") && !value.startsWith("http");
+}
+
+async function resolvePhotoUrl(storedValue: string): Promise<string> {
+  if (!storedValue) return storedValue;
+  if (isStorageObjectPath(storedValue)) {
+    try {
+      return await getSignedUrlForObject(storedValue);
+    } catch (err) {
+      console.error(`[storage] Failed to sign URL for ${storedValue}:`, err);
+      return "";
+    }
+  }
+  // Legacy raw base64 or already-a-URL - return as-is.
+  return storedValue;
+}
+
 export async function readDB(): Promise<SanctuaryDB> {
   await ensureMigrated();
   const [sanctuarySnap, photosSnap, purchasesSnap] = await Promise.all([
@@ -177,15 +202,32 @@ export async function readDB(): Promise<SanctuaryDB> {
   ]);
 
   const mainData = sanctuarySnap.exists ? sanctuarySnap.data()! : {};
+
+  // Resolve stored object paths into fresh, short-lived signed URLs on
+  // every read - this is why only the path is persisted, never a URL with
+  // a baked-in expiry that would eventually stop working.
+  const vaultPhotos = await Promise.all(
+    photosSnap.docs.map(async (d) => {
+      const photo = d.data() as VaultPhoto;
+      return { ...photo, imageUrl: await resolvePhotoUrl(photo.imageUrl) };
+    })
+  );
+  const giftPurchases = await Promise.all(
+    purchasesSnap.docs.map(async (d) => {
+      const purchase = d.data() as GiftPurchase;
+      return { ...purchase, photoUrl: await resolvePhotoUrl(purchase.photoUrl) };
+    })
+  );
+
   return {
     gifts: mainData.gifts || [],
     cycleLogs: [], // populated separately via readCycleDB - kept here only for type compatibility
     periodConfig: DEFAULT_PERIOD_CONFIG, // same as above
     wickedChallengesHistory: mainData.wickedChallengesHistory || [],
-    vaultPhotos: photosSnap.docs.map((d) => d.data() as VaultPhoto),
+    vaultPhotos,
     adminSettings: mainData.adminSettings || DEFAULT_DB_BASE.adminSettings,
     importantDates: mainData.importantDates || [],
-    giftPurchases: purchasesSnap.docs.map((d) => d.data() as GiftPurchase),
+    giftPurchases,
     kitchenDishes: mainData.kitchenDishes || [],
   };
 }
@@ -228,24 +270,50 @@ export async function writeCycleDB(data: CycleTrackerDB): Promise<void> {
 }
 
 // --- Dedicated helpers for the photo/purchase collections ---
+//
+// imageUrl/photoUrl arrive from the frontend as base64 data URIs. Storing
+// that directly in a Firestore document field hits the ~1MiB document
+// limit on anything but a small/heavily-compressed image - confirmed in
+// production ("The value of property 'imageUrl' is longer than 1048487
+// bytes"). Instead, the actual image bytes go to Cloud Storage, and only
+// the resulting object path is stored in Firestore. readDB() resolves
+// that path back into a fresh signed URL on every read.
 
 export async function addVaultPhoto(photo: VaultPhoto): Promise<void> {
   await ensureMigrated();
-  await vaultPhotosCollection.doc(photo.id).set(photo);
+  const objectPath = `vault-photos/${photo.id}`;
+  await uploadDataUriToStorage(photo.imageUrl, objectPath);
+  await vaultPhotosCollection.doc(photo.id).set({ ...photo, imageUrl: objectPath });
 }
 
 export async function deleteVaultPhoto(id: string): Promise<void> {
   await ensureMigrated();
+  const snap = await vaultPhotosCollection.doc(id).get();
+  const data = snap.data();
+  if (data?.imageUrl && isStorageObjectPath(data.imageUrl)) {
+    await deleteStorageObject(data.imageUrl);
+  }
   await vaultPhotosCollection.doc(id).delete();
 }
 
 export async function addGiftPurchase(purchase: GiftPurchase): Promise<void> {
   await ensureMigrated();
-  await giftPurchasesCollection.doc(purchase.id).set(purchase);
+  if (purchase.photoUrl) {
+    const objectPath = `gift-purchase-photos/${purchase.id}`;
+    await uploadDataUriToStorage(purchase.photoUrl, objectPath);
+    await giftPurchasesCollection.doc(purchase.id).set({ ...purchase, photoUrl: objectPath });
+  } else {
+    await giftPurchasesCollection.doc(purchase.id).set(purchase);
+  }
 }
 
 export async function deleteGiftPurchase(id: string): Promise<void> {
   await ensureMigrated();
+  const snap = await giftPurchasesCollection.doc(id).get();
+  const data = snap.data();
+  if (data?.photoUrl && isStorageObjectPath(data.photoUrl)) {
+    await deleteStorageObject(data.photoUrl);
+  }
   await giftPurchasesCollection.doc(id).delete();
 }
 
