@@ -88,20 +88,44 @@ async function migrateLegacyJsonToFirestoreIfNeeded(): Promise<void> {
 
     // Photos and purchases get migrated into their own collections, one
     // document per item, since they contain base64 images (see
-    // server/firestore.ts for why this matters).
-    const batch = firestore.batch();
-    legacyVaultPhotos.forEach((photo) => {
-      batch.set(vaultPhotosCollection.doc(photo.id), photo);
-    });
-    legacyGiftPurchases.forEach((purchase) => {
-      batch.set(giftPurchasesCollection.doc(purchase.id), purchase);
-    });
-    if (legacyVaultPhotos.length > 0 || legacyGiftPurchases.length > 0) {
-      await batch.commit();
+    // server/firestore.ts for why this matters). Each item is written
+    // individually rather than in one batch, and a too-large item is
+    // skipped (with a clear log) rather than failing the ENTIRE migration -
+    // confirmed necessary in practice: a single oversized photo in a batch
+    // blocked every gift, setting, and other photo from migrating too,
+    // every single time the migration retried.
+    let migratedPhotoCount = 0;
+    let skippedPhotoCount = 0;
+    for (const photo of legacyVaultPhotos) {
+      try {
+        await vaultPhotosCollection.doc(photo.id).set(photo);
+        migratedPhotoCount++;
+      } catch (err) {
+        skippedPhotoCount++;
+        console.error(
+          `[firestore-migration] Skipped photo ${photo.id} (likely exceeds Firestore's ~1MiB document limit - see FIRESTORE_MIGRATION.md for the long-term fix):`,
+          (err as Error).message
+        );
+      }
+    }
+
+    let migratedPurchaseCount = 0;
+    let skippedPurchaseCount = 0;
+    for (const purchase of legacyGiftPurchases) {
+      try {
+        await giftPurchasesCollection.doc(purchase.id).set(purchase);
+        migratedPurchaseCount++;
+      } catch (err) {
+        skippedPurchaseCount++;
+        console.error(
+          `[firestore-migration] Skipped purchase ${purchase.id} (likely exceeds Firestore's ~1MiB document limit):`,
+          (err as Error).message
+        );
+      }
     }
 
     console.log(
-      `[firestore-migration] Migrated ${legacyGifts.length} gifts, ${legacyVaultPhotos.length} photos, ${legacyGiftPurchases.length} purchases to Firestore.`
+      `[firestore-migration] Migrated ${legacyGifts.length} gifts, ${migratedPhotoCount}/${legacyVaultPhotos.length} photos (${skippedPhotoCount} skipped - too large), ${migratedPurchaseCount}/${legacyGiftPurchases.length} purchases (${skippedPurchaseCount} skipped - too large) to Firestore.`
     );
   }
 
