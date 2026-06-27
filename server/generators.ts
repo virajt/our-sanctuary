@@ -11,18 +11,30 @@ export const ACTIONS = [
   "gently pinch and roll between your fingers", "breathe hotly and suckle on",
   "use your mouth, tongue, and lips to deeply pleasure", "rub your bare chest and body heat against",
   "use soft toys or fingers to apply deep vibration and teasing strokes near", "slowly slide your fingers or hand inside and around",
-  "gently slap and stroke the curves of", "press your lips, naked hips, and pelvis tightly against"
+  "gently slap and stroke the curves of", "press your lips and pelvis tightly against"
 ];
 
-export const BODY_PARTS = [
-  "her sensitive clitoris and wet labia", "his hard erect penis and sensitive shaft",
-  "her warm perked nipples and full breasts", "his warm heavy balls and sensitive perineum",
+// Body parts are split by who they belong to, so the generator can match
+// the right set to the actual target selected (Command Him / Command Her /
+// Together) - this is the fix for the core grammar/agreement bug: the
+// description used to pull from one combined list regardless of target,
+// so a "Command Him" challenge could end up describing "her clitoris",
+// which doesn't make sense for that target.
+export const HER_BODY_PARTS = [
+  "her sensitive clitoris and wet labia", "her warm perked nipples and full breasts",
   "her highly sensitive G-spot and vaginal entrance", "her soft rounded buttocks and inner thighs",
-  "the highly sensitive nape of their neck and earlobes", "his strong waist, pubic area, and pelvic bone",
-  "her lower stomach, waistline, and pubic mound", "the sensitive crease of the hip and groin",
-  "the deep arch of her spine and lower back", "the soft skin on the inner thighs right next to the sex organs",
-  "each other's naked lips and open mouths", "her sensitive behind-the-knees and inner thighs",
-  "his chest, nipples, and muscular shoulders", "her beautiful collarbones and neck pulse points"
+  "her lower stomach, waistline, and pubic mound", "the deep arch of her spine and lower back",
+  "her sensitive behind-the-knees and inner thighs", "her beautiful collarbones and neck pulse points"
+];
+
+export const HIS_BODY_PARTS = [
+  "his hard erect penis and sensitive shaft", "his warm heavy balls and sensitive perineum",
+  "his strong waist, pubic area, and pelvic bone", "his chest, nipples, and muscular shoulders"
+];
+
+export const SHARED_BODY_PARTS = [
+  "the highly sensitive nape of their neck and earlobes", "the sensitive crease of the hip and groin",
+  "the soft skin on the inner thighs right next to the sex organs", "each other's naked lips and open mouths"
 ];
 
 export const INTENSITIES = [
@@ -33,16 +45,16 @@ export const INTENSITIES = [
 ];
 
 export const DETAILS = [
-  "while maintaining fierce, unbroken eye contact.",
-  "while blindfolded, letting touch be the only language.",
-  "using a sensory item (like silk, a feather, ice, or skin-safe massage lotion).",
-  "while whispering a raw, seductive truth about why you desire them.",
-  "guided strictly by their moans—retreating if they plead, and driving forward as they melt.",
-  "in total silence, communicating only through touch, gaze, and slow kisses.",
-  "counting to 30 slow seconds for each stroke, letting the tension stack.",
-  "while they are restrained lightly or told to remain completely still.",
-  "switching between warm breath and cold-teasing blows.",
-  "while telling them exactly how beautiful and irresistible their body is right now."
+  "while maintaining fierce, unbroken eye contact",
+  "while blindfolded, letting touch be the only language",
+  "using a sensory item (like silk, a feather, ice, or skin-safe massage lotion)",
+  "while whispering a raw, seductive truth about why you desire them",
+  "guided strictly by their moans - retreating if they plead, and driving forward as they melt",
+  "in total silence, communicating only through touch, gaze, and slow kisses",
+  "counting to 30 slow seconds for each stroke, letting the tension stack",
+  "while they are restrained lightly or told to remain completely still",
+  "switching between warm breath and cold-teasing blows",
+  "while telling them exactly how beautiful and irresistible their body is right now"
 ];
 
 // --- PRIVATE GALLERY LISTS ---
@@ -84,19 +96,36 @@ export const PHOTO_AESTHETICS = [
 // --- RANDOM GENERATOR LOGIC ---
 export function generateProceduralWicked(target: "Command Him" | "Command Her" | "Together"): WickedChallenge {
   const action = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
-  const bodyPart = BODY_PARTS[Math.floor(Math.random() * BODY_PARTS.length)];
   const intensityObj = INTENSITIES[Math.floor(Math.random() * INTENSITIES.length)];
   const detail = DETAILS[Math.floor(Math.random() * DETAILS.length)];
 
-  const id = `wicked_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-  
-  // Format the instruction
-  let targetPronoun = "your partner";
-  if (target === "Command Him") targetPronoun = "him";
-  else if (target === "Command Her") targetPronoun = "her";
-  else targetPronoun = "each other";
+  // Pick a body part from the list that actually matches the target, so
+  // a "Command Him" challenge never describes "her clitoris" or similar -
+  // this agreement is the core fix for the grammar bug.
+  let bodyPartPool: string[];
+  let targetPronoun: string;
+  if (target === "Command Him") {
+    bodyPartPool = HIS_BODY_PARTS;
+    targetPronoun = "him";
+  } else if (target === "Command Her") {
+    bodyPartPool = HER_BODY_PARTS;
+    targetPronoun = "her";
+  } else {
+    bodyPartPool = [...HER_BODY_PARTS, ...HIS_BODY_PARTS, ...SHARED_BODY_PARTS];
+    targetPronoun = "each other";
+  }
+  const bodyPart = bodyPartPool[Math.floor(Math.random() * bodyPartPool.length)];
 
-  const description = `${action.charAt(0).toUpperCase() + action.slice(1)} ${bodyPart} ${detail}`;
+  const id = `wicked_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+  // Build as a direct second-person instruction: "<Action> <target's body
+  // part>, <detail>." - grammatically consistent regardless of which
+  // target/body-part combination gets picked, since the body part is now
+  // always drawn from a pool matching the chosen target.
+  const capitalizedAction = action.charAt(0).toUpperCase() + action.slice(1);
+  const description = target === "Together"
+    ? `${capitalizedAction} ${bodyPart}, ${detail}.`
+    : `${capitalizedAction} ${bodyPart}, ${detail}. Direct this toward ${targetPronoun}.`;
   const howTo = `Intensity: ${intensityObj.level}. Instructions: ${intensityObj.instruction}`;
 
   return {

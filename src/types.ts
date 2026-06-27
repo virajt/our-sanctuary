@@ -2,7 +2,7 @@ export interface SensoryGift {
   id: string;
   title: string;
   description: string;
-  category: "Pampering" | "Sensual" | "Intimate" | "Wicked";
+  category: string;
   receiver: "Him" | "Her" | "Together";
   status: "Available" | "Claimed" | "Redeemed";
   claimedBy?: "Him" | "Her";
@@ -91,6 +91,8 @@ export interface AdminSettings {
   photoSetups: string[];
   periodRemindersEnabled: boolean;
   theme?: "Passionate Red" | "Midnight Blue" | "Golden Hour";
+  voucherCategories?: string[];
+  giftCategories?: string[];
 }
 
 export interface ImportantDate {
@@ -113,6 +115,26 @@ export interface GiftPurchase {
   timestamp: string;
 }
 
+// A real gift one partner gives the other - an idea/intention created
+// ahead of time (e.g. "a weekend trip", "a handwritten letter") which the
+// receiver can later claim and redeem. Structurally similar to a voucher
+// (SensoryGift) but conceptually distinct: vouchers are sensory/intimate
+// experiences either partner can redeem anytime, while Gifts are framed as
+// something one partner specifically gives the other, with its own
+// separate, admin-editable category list (AdminSettings.giftCategories).
+export interface Gift {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  giver: "Him" | "Her" | "Together";
+  receiver: "Him" | "Her";
+  status: "Planned" | "Given" | "Received";
+  givenAt?: string;
+  receivedAt?: string;
+  custom?: boolean;
+}
+
 export interface KitchenDish {
   id: string;
   title: string;
@@ -127,7 +149,7 @@ export interface KitchenDish {
 }
 
 export interface SanctuaryDB {
-  gifts: SensoryGift[];
+  gifts: SensoryGift[]; // these are "Vouchers" in the UI - sensory/intimate experiences either partner can redeem anytime
   cycleLogs: CycleLog[];
   periodConfig: PeriodConfig;
   wickedChallengesHistory: WickedChallenge[];
@@ -136,4 +158,5 @@ export interface SanctuaryDB {
   importantDates: ImportantDate[];
   giftPurchases: GiftPurchase[];
   kitchenDishes?: KitchenDish[];
+  realGifts?: Gift[]; // the new "Gifts" feature - actual gifts one partner gives the other
 }

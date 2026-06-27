@@ -43,9 +43,12 @@ const DEFAULT_DB_BASE: Omit<SanctuaryDB, "gifts" | "cycleLogs" | "periodConfig" 
     photoSetups: [],
     periodRemindersEnabled: true,
     theme: "Passionate Red",
+    voucherCategories: ["Pampering", "Sensual", "Intimate", "Wicked"],
+    giftCategories: ["Jewelry", "Experience", "Letter", "Trip", "Keepsake", "Other"],
   },
   importantDates: [],
   kitchenDishes: [],
+  realGifts: [],
 };
 
 const DEFAULT_PERIOD_CONFIG = {
@@ -89,6 +92,7 @@ async function migrateLegacyJsonToFirestoreIfNeeded(): Promise<void> {
       adminSettings: legacyMain.adminSettings || DEFAULT_DB_BASE.adminSettings,
       importantDates: legacyMain.importantDates || DEFAULT_DB_BASE.importantDates,
       kitchenDishes: legacyMain.kitchenDishes || DEFAULT_DB_BASE.kitchenDishes,
+      realGifts: legacyMain.realGifts || DEFAULT_DB_BASE.realGifts,
     });
 
     // Photos and purchases get migrated via the same addVaultPhoto /
@@ -229,6 +233,7 @@ export async function readDB(): Promise<SanctuaryDB> {
     importantDates: mainData.importantDates || [],
     giftPurchases,
     kitchenDishes: mainData.kitchenDishes || [],
+    realGifts: mainData.realGifts || [],
   };
 }
 
@@ -248,6 +253,7 @@ export async function writeDB(data: SanctuaryDB): Promise<void> {
     adminSettings: data.adminSettings,
     importantDates: data.importantDates,
     kitchenDishes: data.kitchenDishes || [],
+    realGifts: data.realGifts || [],
   });
 }
 
@@ -342,6 +348,7 @@ export async function withSanctuaryTransaction<T>(
       importantDates: mainData.importantDates || [],
       giftPurchases: [],
       kitchenDishes: mainData.kitchenDishes || [],
+      realGifts: mainData.realGifts || [],
     };
 
     let pendingUpdate: Partial<SanctuaryDB> | null = null;

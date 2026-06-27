@@ -437,9 +437,32 @@ function BaselineEditor({
   const [date, setDate] = useState(config.lastPeriodDate);
   const [cycleLength, setCycleLength] = useState(config.cycleLength);
   const [periodLength, setPeriodLength] = useState(config.periodLength);
+  const [validationError, setValidationError] = useState("");
+
+  const handleUpdate = () => {
+    // This button isn't inside a <form>, so the min/max attributes on the
+    // inputs below are purely visual hints - they don't actually block
+    // anything the way they would on a native form submit. Validate for
+    // real here instead of relying on the server's rejection alone.
+    if (!date) {
+      setValidationError("Please choose a last period date.");
+      return;
+    }
+    if (!cycleLength || cycleLength < 15 || cycleLength > 60) {
+      setValidationError("Cycle length must be between 15 and 60 days.");
+      return;
+    }
+    if (!periodLength || periodLength < 1 || periodLength > 14) {
+      setValidationError("Period length must be between 1 and 14 days.");
+      return;
+    }
+    setValidationError("");
+    onUpdateConfig(date, cycleLength, periodLength, config.pregnancyMode, config.pregnancyStartDate);
+  };
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
       <div className="space-y-1">
         <label className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Last period date</label>
         <input
@@ -472,11 +495,15 @@ function BaselineEditor({
         />
       </div>
       <button
-        onClick={() => onUpdateConfig(date, cycleLength, periodLength, config.pregnancyMode, config.pregnancyStartDate)}
+        onClick={handleUpdate}
         className="px-4 py-2 bg-red-900/60 hover:bg-red-800 border border-red-700/50 text-white text-xs font-bold rounded-xl shadow-lg transition cursor-pointer"
       >
         Update baseline
       </button>
+      </div>
+      {validationError && (
+        <p className="text-[11px] text-red-400">{validationError}</p>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { SanctuaryDB, SensoryGift, CycleLog, PeriodConfig, VaultPhoto, AdminSettings, WickedChallenge, ImportantDate, GiftPurchase, KitchenDish } from "./types";
 import MusicPlayer from "./components/MusicPlayer";
 import GiftsView from "./components/GiftsView";
+import GiftsRealView from "./components/GiftsRealView";
 import WickedChamber from "./components/WickedChamber";
 import PrivateGallery from "./components/PrivateGallery";
 import PeriodTracker from "./components/PeriodTracker";
@@ -14,11 +15,11 @@ import { SanctuaryTheme } from "./components/effects/EmberFieldBackground";
 const EmberFieldBackground = React.lazy(() => import("./components/effects/EmberFieldBackground"));
 import { useAuth } from "./hooks/useAuth";
 import { apiFetch } from "./lib/apiFetch";
-import { Gift, Flame, Shield, Calendar, Settings, Sparkles, Heart, Bell, Tag, Utensils, Lock, Eye, EyeOff, KeyRound, LogOut } from "lucide-react";
+import { Gift, Flame, Shield, Calendar, Settings, Sparkles, Heart, Bell, Tag, Utensils, Lock, Eye, EyeOff, KeyRound, LogOut, PackageCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"gifts" | "purchases" | "wicked" | "gallery" | "period" | "dates" | "admin" | "kitchen">("gifts");
+  const [activeTab, setActiveTab] = useState<"gifts" | "realgifts" | "purchases" | "wicked" | "gallery" | "period" | "dates" | "admin" | "kitchen">("gifts");
   const [isLoading, setIsLoading] = useState(true);
   const [db, setDb] = useState<SanctuaryDB | null>(null);
 
@@ -187,6 +188,49 @@ export default function App() {
       }
     } catch (err) {
       console.error("Failed to delete custom gift:", err);
+    }
+  };
+
+  // --- Real Gifts (distinct from Vouchers above) ---
+  const handleAddRealGift = async (title: string, description: string, category: string, giver: "Him" | "Her" | "Together", receiver: "Him" | "Her") => {
+    try {
+      const response = await apiFetch("/api/real-gifts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description, category, giver, receiver })
+      });
+      if (response.ok) {
+        fetchDatabase();
+      }
+    } catch (err) {
+      console.error("Failed to add gift:", err);
+    }
+  };
+
+  const handleGiveRealGift = async (id: string) => {
+    try {
+      const response = await apiFetch(`/api/real-gifts/${id}/give`, { method: "POST" });
+      if (response.ok) fetchDatabase();
+    } catch (err) {
+      console.error("Failed to mark gift as given:", err);
+    }
+  };
+
+  const handleReceiveRealGift = async (id: string) => {
+    try {
+      const response = await apiFetch(`/api/real-gifts/${id}/receive`, { method: "POST" });
+      if (response.ok) fetchDatabase();
+    } catch (err) {
+      console.error("Failed to mark gift as received:", err);
+    }
+  };
+
+  const handleDeleteRealGift = async (id: string) => {
+    try {
+      const response = await apiFetch(`/api/real-gifts/${id}/delete`, { method: "POST" });
+      if (response.ok) fetchDatabase();
+    } catch (err) {
+      console.error("Failed to delete gift:", err);
     }
   };
 
@@ -623,9 +667,9 @@ export default function App() {
 
         {/* Central bento navigation layout switch */}
         <nav className="max-w-4xl mx-auto" id="sanctuary-nav">
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-1 bg-white/[0.02] p-2 rounded-2xl border border-white/10 shadow-2xl overflow-hidden backdrop-blur-lg">
+          <div className="grid grid-cols-4 md:grid-cols-9 gap-1 bg-white/[0.02] p-2 rounded-2xl border border-white/10 shadow-2xl overflow-hidden backdrop-blur-lg">
             
-            {/* Button 1: Gifts */}
+            {/* Button 1: Vouchers */}
             <button
               onClick={() => setActiveTab("gifts")}
               className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
@@ -643,6 +687,26 @@ export default function App() {
               )}
               <Gift className="w-4 h-4 text-red-500/80" />
               <span className="text-[9px] tracking-wide uppercase">Vouchers</span>
+            </button>
+
+            {/* Button 1b: Real Gifts */}
+            <button
+              onClick={() => setActiveTab("realgifts")}
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
+                activeTab === "realgifts"
+                  ? "border-red-800 text-white font-bold glow-red"
+                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              {activeTab === "realgifts" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
+              <PackageCheck className="w-4 h-4 text-red-500/80" />
+              <span className="text-[9px] tracking-wide uppercase">Gifts</span>
             </button>
 
             {/* Button 2: Legacy Gift Purchases */}
@@ -802,10 +866,30 @@ export default function App() {
               >
                 <GiftsView
                   gifts={db.gifts}
+                  categories={db.adminSettings.voucherCategories || ["Pampering", "Sensual", "Intimate", "Wicked"]}
                   onClaim={handleClaimGift}
                   onRedeem={handleRedeemGift}
                   onAddGift={handleAddGift}
                   onDeleteCustom={handleDeleteGift}
+                />
+              </motion.div>
+            )}
+
+            {activeTab === "realgifts" && (
+              <motion.div
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                key="realGiftsView"
+              >
+                <GiftsRealView
+                  gifts={db.realGifts || []}
+                  categories={db.adminSettings.giftCategories || ["Jewelry", "Experience", "Letter", "Trip", "Keepsake", "Other"]}
+                  onGive={handleGiveRealGift}
+                  onReceive={handleReceiveRealGift}
+                  onAddGift={handleAddRealGift}
+                  onDeleteCustom={handleDeleteRealGift}
                 />
               </motion.div>
             )}

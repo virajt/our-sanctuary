@@ -9,21 +9,22 @@ import MagneticButton from "./effects/MagneticButton";
 
 interface GiftsViewProps {
   gifts: SensoryGift[];
+  categories: string[];
   onClaim: (id: string, claimedBy: "Him" | "Her") => void;
   onRedeem: (id: string) => void;
-  onAddGift: (title: string, description: string, category: "Pampering" | "Sensual" | "Intimate" | "Wicked", receiver: "Him" | "Her" | "Together") => void;
+  onAddGift: (title: string, description: string, category: string, receiver: "Him" | "Her" | "Together") => void;
   onDeleteCustom: (id: string) => void;
 }
 
-export default function GiftsView({ gifts, onClaim, onRedeem, onAddGift, onDeleteCustom }: GiftsViewProps) {
+export default function GiftsView({ gifts, categories, onClaim, onRedeem, onAddGift, onDeleteCustom }: GiftsViewProps) {
   const [filterCat, setFilterCat] = useState<string>("All");
   const [filterReceiver, setFilterReceiver] = useState<string>("All");
   
-  // Custom Gift Form Modal / Accordion toggle
+  // Custom Voucher Form Modal / Accordion toggle
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [newCat, setNewCat] = useState<"Pampering" | "Sensual" | "Intimate" | "Wicked">("Sensual");
+  const [newCat, setNewCat] = useState<string>(categories[0] || "Sensual");
   const [newReceiver, setNewReceiver] = useState<"Him" | "Her" | "Together">("Together");
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -83,9 +84,9 @@ export default function GiftsView({ gifts, onClaim, onRedeem, onAddGift, onDelet
         <div className="space-y-1">
           <h2 className="font-serif text-3xl font-medium tracking-wide text-white flex items-center gap-3">
             <Gift className="w-8 h-8 text-red-500 animate-pulse" />
-            Gifts we give each other
+            Vouchers we can redeem anytime
           </h2>
-          <p className="text-sm text-neutral-400">Claim, redeem, and customize pampering vouchers and pleasure cards.</p>
+          <p className="text-sm text-neutral-400">Claim, redeem, and customize pampering vouchers and pleasure cards. Categories editable in Admin.</p>
         </div>
 
         {/* Filters and Add Trigger */}
@@ -97,10 +98,9 @@ export default function GiftsView({ gifts, onClaim, onRedeem, onAddGift, onDelet
               className="text-xs bg-transparent text-neutral-300 border-none outline-none px-2 py-1 cursor-pointer"
             >
               <option value="All" className="bg-luxury-950">All Levels</option>
-              <option value="Pampering" className="bg-luxury-950">Pampering</option>
-              <option value="Sensual" className="bg-luxury-950">Sensual</option>
-              <option value="Intimate" className="bg-luxury-950">Intimate</option>
-              <option value="Wicked" className="bg-luxury-950">Wicked</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat} className="bg-luxury-950">{cat}</option>
+              ))}
             </select>
           </div>
 
@@ -168,13 +168,12 @@ export default function GiftsView({ gifts, onClaim, onRedeem, onAddGift, onDelet
                   <label className="text-xs text-neutral-400 font-medium">Vibe Level</label>
                   <select
                     value={newCat}
-                    onChange={(e) => setNewCat(e.target.value as any)}
+                    onChange={(e) => setNewCat(e.target.value)}
                     className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-4 py-3 text-sm text-neutral-300 focus:outline-none focus:border-red-500/50 transition-colors"
                   >
-                    <option value="Pampering">Pampering (Relaxation)</option>
-                    <option value="Sensual">Sensual (Slow Tactile)</option>
-                    <option value="Intimate">Intimate (Deep Connection)</option>
-                    <option value="Wicked">Wicked (Forbidden Desires)</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -216,7 +215,7 @@ export default function GiftsView({ gifts, onClaim, onRedeem, onAddGift, onDelet
                   type="submit"
                   className="px-5 py-2 bg-gradient-to-r from-red-950 to-red-900 border border-red-800/40 text-red-400 hover:text-red-300 text-xs font-bold rounded-2xl shadow-lg transition glow-red"
                 >
-                  Confirm & Save Gift Card
+                  Confirm & Save Voucher
                 </button>
               </div>
             </form>
@@ -300,12 +299,12 @@ export default function GiftsView({ gifts, onClaim, onRedeem, onAddGift, onDelet
                   {gift.custom && (
                     <button
                       onClick={() => {
-                        if (confirm("Delete this custom gift permanently?")) {
+                        if (confirm("Delete this custom voucher permanently?")) {
                           onDeleteCustom(gift.id);
                         }
                       }}
                       className="p-1.5 rounded-xl border border-luxury-800 hover:border-red-500/40 text-neutral-500 hover:text-red-400 transition"
-                      title="Delete Custom Gift"
+                      title="Delete Custom Voucher"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -356,7 +355,7 @@ export default function GiftsView({ gifts, onClaim, onRedeem, onAddGift, onDelet
         {filteredGifts.length === 0 && (
           <div className="col-span-full border border-dashed border-luxury-800 rounded-3xl p-12 text-center text-neutral-500 space-y-2">
             <Gift className="w-12 h-12 text-neutral-600 mx-auto" />
-            <p className="text-sm">No gifts match your set filter parameters right now.</p>
+            <p className="text-sm">No vouchers match your set filter parameters right now.</p>
           </div>
         )}
       </div>

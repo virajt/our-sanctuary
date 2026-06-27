@@ -45,6 +45,8 @@ export default function AdminPanel({
   const [newAction, setNewAction] = useState("");
   const [newBodyPart, setNewBodyPart] = useState("");
   const [newTheme, setNewTheme] = useState("");
+  const [newVoucherCategory, setNewVoucherCategory] = useState("");
+  const [newGiftCategory, setNewGiftCategory] = useState("");
 
   // Bulk Importer States
   const [importFormat, setImportFormat] = useState<"json" | "csv">("json");
@@ -234,7 +236,23 @@ export default function AdminPanel({
     alert(`"${newTheme.trim()}" added to private gallery theme dictionary!`);
   };
 
-  const handleRemoveDictItem = (dictKey: "wickedActions" | "wickedBodyParts" | "photoThemes", value: string) => {
+  const handleAddVoucherCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVoucherCategory.trim()) return;
+    const updated = [...(settings.voucherCategories || []), newVoucherCategory.trim()];
+    onUpdateSettings({ voucherCategories: updated });
+    setNewVoucherCategory("");
+  };
+
+  const handleAddGiftCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGiftCategory.trim()) return;
+    const updated = [...(settings.giftCategories || []), newGiftCategory.trim()];
+    onUpdateSettings({ giftCategories: updated });
+    setNewGiftCategory("");
+  };
+
+  const handleRemoveDictItem = (dictKey: "wickedActions" | "wickedBodyParts" | "photoThemes" | "voucherCategories" | "giftCategories", value: string) => {
     const updated = (settings[dictKey] as string[]).filter(v => v !== value);
     onUpdateSettings({ [dictKey]: updated });
   };
@@ -536,6 +554,74 @@ export default function AdminPanel({
                     </div>
                   ))}
                   {settings.photoThemes.length === 0 && <span className="text-[10px] text-neutral-600 block italic">Procedural Defaults are fully active. Add custom elements to tune generators.</span>}
+                </div>
+              </form>
+
+              {/* Voucher Categories - fully admin-managed list, not just additions on top of a fixed default */}
+              <form onSubmit={handleAddVoucherCategory} className="bg-luxury-900/60 p-6 rounded-3xl border border-luxury-800 space-y-4">
+                <h4 className="font-serif text-sm font-bold uppercase tracking-wider text-neutral-300">Voucher Categories</h4>
+                <p className="text-[10px] text-neutral-500">Shown in the Vouchers tab's filter and "Create Voucher" form.</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Adventurous"
+                    value={newVoucherCategory}
+                    onChange={(e) => setNewVoucherCategory(e.target.value)}
+                    className="flex-1 bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-800"
+                  />
+                  <button type="submit" className="p-2 bg-red-950/60 border border-red-850 hover:bg-red-900/25 text-red-400 rounded-xl transition cursor-pointer glow-red">
+                    <Plus className="w-4 h-4 stroke-[3px]" />
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-36 overflow-y-auto pr-1 pt-2 border-t border-luxury-800/40">
+                  <span className="text-[9px] text-neutral-500 font-mono uppercase tracking-widest block font-bold">
+                    Categories ({(settings.voucherCategories || []).length}):
+                  </span>
+                  {(settings.voucherCategories || []).map((cat) => (
+                    <div key={cat} className="flex items-center justify-between p-1 px-2.5 bg-luxury-950 rounded bg-opacity-40 text-xs text-neutral-300 border border-luxury-850">
+                      <span className="truncate">{cat}</span>
+                      <button type="button" onClick={() => handleRemoveDictItem("voucherCategories", cat)} className="text-neutral-500 hover:text-red-400 transition">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {(settings.voucherCategories || []).length === 0 && <span className="text-[10px] text-neutral-600 block italic">No categories yet - add at least one above.</span>}
+                </div>
+              </form>
+
+              {/* Gift Categories - the new "Gifts we give each other" feature, fully separate from Vouchers */}
+              <form onSubmit={handleAddGiftCategory} className="bg-luxury-900/60 p-6 rounded-3xl border border-luxury-800 space-y-4">
+                <h4 className="font-serif text-sm font-bold uppercase tracking-wider text-neutral-300">Gift Categories</h4>
+                <p className="text-[10px] text-neutral-500">Shown in the Gifts tab's filter and "Plan a Gift" form.</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Handmade"
+                    value={newGiftCategory}
+                    onChange={(e) => setNewGiftCategory(e.target.value)}
+                    className="flex-1 bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-800"
+                  />
+                  <button type="submit" className="p-2 bg-red-950/60 border border-red-850 hover:bg-red-900/25 text-red-400 rounded-xl transition cursor-pointer glow-red">
+                    <Plus className="w-4 h-4 stroke-[3px]" />
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-36 overflow-y-auto pr-1 pt-2 border-t border-luxury-800/40">
+                  <span className="text-[9px] text-neutral-500 font-mono uppercase tracking-widest block font-bold">
+                    Categories ({(settings.giftCategories || []).length}):
+                  </span>
+                  {(settings.giftCategories || []).map((cat) => (
+                    <div key={cat} className="flex items-center justify-between p-1 px-2.5 bg-luxury-950 rounded bg-opacity-40 text-xs text-neutral-300 border border-luxury-850">
+                      <span className="truncate">{cat}</span>
+                      <button type="button" onClick={() => handleRemoveDictItem("giftCategories", cat)} className="text-neutral-500 hover:text-red-400 transition">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {(settings.giftCategories || []).length === 0 && <span className="text-[10px] text-neutral-600 block italic">No categories yet - add at least one above.</span>}
                 </div>
               </form>
 

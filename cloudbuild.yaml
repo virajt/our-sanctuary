@@ -49,6 +49,23 @@ steps:
       - 'the-parent-500004'
       - '--quiet'
 
+  # Build-completion email. Cloud Build's automatic "approval required"
+  # email is built into the platform itself - this step is the closest
+  # equivalent for "the build finished" using a lightweight transactional
+  # email API (no extra Cloud Run service or Pub/Sub plumbing needed).
+  # Only runs if every prior step succeeded - Cloud Build skips remaining
+  # steps after a failure, so a missing email also tells you something
+  # broke earlier in the build.
+  - name: 'gcr.io/cloud-builders/curl'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        curl -s -X POST 'https://api.resend.com/emails' \
+          -H "Authorization: Bearer ${_RESEND_API_KEY}" \
+          -H 'Content-Type: application/json' \
+          -d "{\"from\":\"Our Sanctuary Build <onboarding@resend.dev>\",\"to\":[\"${_NOTIFY_EMAIL}\"],\"subject\":\"Build succeeded - our-sanctuary-service\",\"text\":\"Commit ${SHORT_SHA} built and deployed successfully.\"}"
+
 images:
   - 'australia-southeast1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/our-sanctuary/our-sanctuary-service:${SHORT_SHA}'
 options:
@@ -56,3 +73,5 @@ options:
 substitutions:
   _GEMINI_KEY: ''
   _GOOGLE_CLIENT_ID: ''
+  _RESEND_API_KEY: ''
+  _NOTIFY_EMAIL: ''

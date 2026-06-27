@@ -13,6 +13,7 @@ import {
   AdminSettings,
   ImportantDate,
   GiftPurchase,
+  Gift,
   CycleTrackerDB
 } from "./src/types";
 import {
@@ -243,6 +244,86 @@ app.post("/api/gifts/:id/delete", asyncRoute(async (req: Request, res: Response)
     const filtered = db.gifts.filter(g => g.id !== id);
     if (filtered.length === db.gifts.length) return false;
     setDb({ gifts: filtered });
+    return true;
+  });
+  if (!found) {
+    res.status(404).json({ error: "Gift not found" });
+    return;
+  }
+  res.json({ success: true, message: "Gift removed successfully." });
+}));
+
+// 2b. Real Gifts (distinct from Vouchers above) - actual gifts one partner
+// gives the other, e.g. jewelry, a trip, a handwritten letter. Mirrors the
+// Vouchers routes structurally (create / give / receive / delete) but
+// lives in its own realGifts array with its own admin-editable category
+// list (AdminSettings.giftCategories), since these are conceptually
+// different from sensory vouchers.
+app.post("/api/real-gifts", asyncRoute(async (req: Request, res: Response) => {
+  const { title, description, category, giver, receiver } = req.body;
+  if (!title || !description || !category || !giver || !receiver) {
+     res.status(400).json({ error: "Missing required fields" });
+     return;
+  }
+  const newGift = await withSanctuaryTransaction((db, setDb) => {
+    const gift: Gift = {
+      id: `realgift_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      title,
+      description,
+      category,
+      giver,
+      receiver,
+      status: "Planned",
+      custom: true
+    };
+    const realGifts = [...(db.realGifts || []), gift];
+    setDb({ realGifts });
+    return gift;
+  });
+  res.json(newGift);
+}));
+
+app.post("/api/real-gifts/:id/give", asyncRoute(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await withSanctuaryTransaction((db, setDb) => {
+    const gifts = [...(db.realGifts || [])];
+    const idx = gifts.findIndex(g => g.id === id);
+    if (idx === -1) return null;
+    gifts[idx] = { ...gifts[idx], status: "Given", givenAt: new Date().toISOString() };
+    setDb({ realGifts: gifts });
+    return gifts[idx];
+  });
+  if (!result) {
+    res.status(404).json({ error: "Gift not found" });
+    return;
+  }
+  res.json(result);
+}));
+
+app.post("/api/real-gifts/:id/receive", asyncRoute(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await withSanctuaryTransaction((db, setDb) => {
+    const gifts = [...(db.realGifts || [])];
+    const idx = gifts.findIndex(g => g.id === id);
+    if (idx === -1) return null;
+    gifts[idx] = { ...gifts[idx], status: "Received", receivedAt: new Date().toISOString() };
+    setDb({ realGifts: gifts });
+    return gifts[idx];
+  });
+  if (!result) {
+    res.status(404).json({ error: "Gift not found" });
+    return;
+  }
+  res.json(result);
+}));
+
+app.post("/api/real-gifts/:id/delete", asyncRoute(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const found = await withSanctuaryTransaction((db, setDb) => {
+    const gifts = db.realGifts || [];
+    const filtered = gifts.filter(g => g.id !== id);
+    if (filtered.length === gifts.length) return false;
+    setDb({ realGifts: filtered });
     return true;
   });
   if (!found) {
@@ -497,7 +578,7 @@ app.post("/api/period/log", asyncRoute(async (req: Request, res: Response) => {
 
 // 8. Admin Settings Update
 app.post("/api/admin/settings", asyncRoute(async (req: Request, res: Response) => {
-  const { vibeIntensity, periodRemindersEnabled, wickedActions, wickedBodyParts, photoThemes, photoSetups, theme } = req.body;
+  const { vibeIntensity, periodRemindersEnabled, wickedActions, wickedBodyParts, photoThemes, photoSetups, theme, voucherCategories, giftCategories } = req.body;
   const settings = await withSanctuaryTransaction((db, setDb) => {
     const adminSettings: AdminSettings = {
       vibeIntensity: vibeIntensity || db.adminSettings.vibeIntensity,
@@ -506,7 +587,9 @@ app.post("/api/admin/settings", asyncRoute(async (req: Request, res: Response) =
       wickedBodyParts: wickedBodyParts || db.adminSettings.wickedBodyParts,
       photoThemes: photoThemes || db.adminSettings.photoThemes,
       photoSetups: photoSetups || db.adminSettings.photoSetups,
-      theme: theme || db.adminSettings.theme || "Passionate Red"
+      theme: theme || db.adminSettings.theme || "Passionate Red",
+      voucherCategories: voucherCategories || db.adminSettings.voucherCategories || ["Pampering", "Sensual", "Intimate", "Wicked"],
+      giftCategories: giftCategories || db.adminSettings.giftCategories || ["Jewelry", "Experience", "Letter", "Trip", "Keepsake", "Other"]
     };
     setDb({ adminSettings });
     return adminSettings;
