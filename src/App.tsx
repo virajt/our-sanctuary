@@ -3,6 +3,10 @@ import { SanctuaryDB, SensoryGift, CycleLog, PeriodConfig, VaultPhoto, AdminSett
 import MusicPlayer from "./components/MusicPlayer";
 import GiftsView from "./components/GiftsView";
 import GiftsRealView from "./components/GiftsRealView";
+import VisualLibraryView from "./components/VisualLibraryView";
+import ConversationHubView from "./components/ConversationHubView";
+import StoryEngineView from "./components/StoryEngineView";
+import { VISUAL_LIBRARY, CONVERSATION_PROMPTS, STORY_STEPS } from "./data/fantasyContent";
 import WickedChamber from "./components/WickedChamber";
 import PrivateGallery from "./components/PrivateGallery";
 import PeriodTracker from "./components/PeriodTracker";
@@ -19,7 +23,7 @@ import { Gift, Flame, Shield, Calendar, Settings, Sparkles, Heart, Bell, Tag, Ut
 import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"gifts" | "realgifts" | "purchases" | "wicked" | "gallery" | "period" | "dates" | "admin" | "kitchen">("gifts");
+  const [activeTab, setActiveTab] = useState<"gifts" | "realgifts" | "purchases" | "wicked" | "gallery" | "period" | "dates" | "admin" | "kitchen" | "library" | "conversation" | "story">("gifts");
   const [isLoading, setIsLoading] = useState(true);
   const [db, setDb] = useState<SanctuaryDB | null>(null);
 
@@ -231,6 +235,50 @@ export default function App() {
       if (response.ok) fetchDatabase();
     } catch (err) {
       console.error("Failed to delete gift:", err);
+    }
+  };
+
+  const handleAnswerPrompt = async (promptId: string, question: string, answeredBy: "Him" | "Her" | "Together", answer: string) => {
+    try {
+      const response = await apiFetch("/api/conversation/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ promptId, question, answeredBy, answer })
+      });
+      if (response.ok) fetchDatabase();
+    } catch (err) {
+      console.error("Failed to save conversation answer:", err);
+    }
+  };
+
+  const handleDeleteConversationAnswer = async (id: string) => {
+    try {
+      const response = await apiFetch(`/api/conversation/answer/${id}`, { method: "DELETE" });
+      if (response.ok) fetchDatabase();
+    } catch (err) {
+      console.error("Failed to delete conversation answer:", err);
+    }
+  };
+
+  const handleAdvanceStory = async (stepId: string) => {
+    try {
+      const response = await apiFetch("/api/story/advance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stepId })
+      });
+      if (response.ok) fetchDatabase();
+    } catch (err) {
+      console.error("Failed to advance story:", err);
+    }
+  };
+
+  const handleResetStory = async () => {
+    try {
+      const response = await apiFetch("/api/story/reset", { method: "POST" });
+      if (response.ok) fetchDatabase();
+    } catch (err) {
+      console.error("Failed to reset story:", err);
     }
   };
 
@@ -667,7 +715,7 @@ export default function App() {
 
         {/* Central bento navigation layout switch */}
         <nav className="max-w-4xl mx-auto" id="sanctuary-nav">
-          <div className="grid grid-cols-4 md:grid-cols-9 gap-1 bg-white/[0.02] p-2 rounded-2xl border border-white/10 shadow-2xl overflow-hidden backdrop-blur-lg">
+          <div className="grid grid-cols-4 md:grid-cols-12 gap-1 bg-white/[0.02] p-2 rounded-2xl border border-white/10 shadow-2xl overflow-hidden backdrop-blur-lg">
             
             {/* Button 1: Vouchers */}
             <button
@@ -807,6 +855,66 @@ export default function App() {
               )}
               <Utensils className="w-4 h-4 text-red-500/80" />
               <span className="text-[9px] tracking-wide uppercase">Kitchen</span>
+            </button>
+
+            {/* Button 6b: Visual Library */}
+            <button
+              onClick={() => setActiveTab("library")}
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
+                activeTab === "library"
+                  ? "border-red-800 text-white font-bold glow-red"
+                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              {activeTab === "library" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
+              <Heart className="w-4 h-4 text-red-500/80" />
+              <span className="text-[9px] tracking-wide uppercase">Library</span>
+            </button>
+
+            {/* Button 6c: Conversation Hub */}
+            <button
+              onClick={() => setActiveTab("conversation")}
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
+                activeTab === "conversation"
+                  ? "border-red-800 text-white font-bold glow-red"
+                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              {activeTab === "conversation" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
+              <Bell className="w-4 h-4 text-red-500/80" />
+              <span className="text-[9px] tracking-wide uppercase">Talk</span>
+            </button>
+
+            {/* Button 6d: Story Engine */}
+            <button
+              onClick={() => setActiveTab("story")}
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
+                activeTab === "story"
+                  ? "border-red-800 text-white font-bold glow-red"
+                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              {activeTab === "story" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
+              <Sparkles className="w-4 h-4 text-red-500/80" />
+              <span className="text-[9px] tracking-wide uppercase">Story</span>
             </button>
 
             {/* Button 6: Sacred Date Reminders */}
@@ -1045,6 +1153,52 @@ export default function App() {
                   onDeleteDish={handleDeleteKitchenDish}
                   onUpdateNotes={handleUpdateKitchenNotes}
                   onUpdateRating={handleUpdateKitchenRating}
+                />
+              </motion.div>
+            )}
+
+            {activeTab === "library" && (
+              <motion.div
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                key="visualLibrary"
+              >
+                <VisualLibraryView items={VISUAL_LIBRARY} />
+              </motion.div>
+            )}
+
+            {activeTab === "conversation" && (
+              <motion.div
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                key="conversationHub"
+              >
+                <ConversationHubView
+                  prompts={CONVERSATION_PROMPTS}
+                  answers={db.conversationAnswers || []}
+                  onAnswer={handleAnswerPrompt}
+                  onDeleteAnswer={handleDeleteConversationAnswer}
+                />
+              </motion.div>
+            )}
+
+            {activeTab === "story" && (
+              <motion.div
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                key="storyEngine"
+              >
+                <StoryEngineView
+                  steps={STORY_STEPS}
+                  progress={db.storyProgress || { currentStepId: "root", history: [], updatedAt: "" }}
+                  onAdvance={handleAdvanceStory}
+                  onReset={handleResetStory}
                 />
               </motion.div>
             )}

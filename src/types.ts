@@ -148,6 +148,32 @@ export interface KitchenDish {
   timestamp: string;
 }
 
+// --- Merged from the-fantasy ---
+
+export interface VisualLibraryItem {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  intimacyLevel: "Mild" | "Moderate" | "High" | "Deep";
+  mood: string;
+}
+
+export interface ConversationAnswer {
+  id: string;
+  promptId: string;
+  question: string;
+  answeredBy: "Him" | "Her" | "Together";
+  answer: string;
+  timestamp: string;
+}
+
+export interface StoryProgress {
+  currentStepId: string;
+  history: string[]; // step IDs visited, in order
+  updatedAt: string;
+}
+
 export interface SanctuaryDB {
   gifts: SensoryGift[]; // these are "Vouchers" in the UI - sensory/intimate experiences either partner can redeem anytime
   cycleLogs: CycleLog[];
@@ -159,4 +185,6 @@ export interface SanctuaryDB {
   giftPurchases: GiftPurchase[];
   kitchenDishes?: KitchenDish[];
   realGifts?: Gift[]; // the new "Gifts" feature - actual gifts one partner gives the other
+  conversationAnswers?: ConversationAnswer[];
+  storyProgress?: StoryProgress;
 }

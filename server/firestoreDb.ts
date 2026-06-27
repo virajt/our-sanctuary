@@ -49,6 +49,8 @@ const DEFAULT_DB_BASE: Omit<SanctuaryDB, "gifts" | "cycleLogs" | "periodConfig" 
   importantDates: [],
   kitchenDishes: [],
   realGifts: [],
+  conversationAnswers: [],
+  storyProgress: { currentStepId: "root", history: [], updatedAt: new Date().toISOString() },
 };
 
 const DEFAULT_PERIOD_CONFIG = {
@@ -93,6 +95,8 @@ async function migrateLegacyJsonToFirestoreIfNeeded(): Promise<void> {
       importantDates: legacyMain.importantDates || DEFAULT_DB_BASE.importantDates,
       kitchenDishes: legacyMain.kitchenDishes || DEFAULT_DB_BASE.kitchenDishes,
       realGifts: legacyMain.realGifts || DEFAULT_DB_BASE.realGifts,
+      conversationAnswers: legacyMain.conversationAnswers || DEFAULT_DB_BASE.conversationAnswers,
+      storyProgress: legacyMain.storyProgress || DEFAULT_DB_BASE.storyProgress,
     });
 
     // Photos and purchases get migrated via the same addVaultPhoto /
@@ -234,6 +238,8 @@ export async function readDB(): Promise<SanctuaryDB> {
     giftPurchases,
     kitchenDishes: mainData.kitchenDishes || [],
     realGifts: mainData.realGifts || [],
+    conversationAnswers: mainData.conversationAnswers || [],
+    storyProgress: mainData.storyProgress || DEFAULT_DB_BASE.storyProgress,
   };
 }
 
@@ -254,6 +260,8 @@ export async function writeDB(data: SanctuaryDB): Promise<void> {
     importantDates: data.importantDates,
     kitchenDishes: data.kitchenDishes || [],
     realGifts: data.realGifts || [],
+    conversationAnswers: data.conversationAnswers || [],
+    storyProgress: data.storyProgress || DEFAULT_DB_BASE.storyProgress,
   });
 }
 
@@ -349,6 +357,8 @@ export async function withSanctuaryTransaction<T>(
       giftPurchases: [],
       kitchenDishes: mainData.kitchenDishes || [],
       realGifts: mainData.realGifts || [],
+      conversationAnswers: mainData.conversationAnswers || [],
+      storyProgress: mainData.storyProgress || DEFAULT_DB_BASE.storyProgress,
     };
 
     let pendingUpdate: Partial<SanctuaryDB> | null = null;

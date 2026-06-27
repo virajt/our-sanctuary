@@ -14,6 +14,8 @@ import {
   ImportantDate,
   GiftPurchase,
   Gift,
+  ConversationAnswer,
+  StoryProgress,
   CycleTrackerDB
 } from "./src/types";
 import {
@@ -1302,6 +1304,65 @@ app.post("/api/kitchen/rating/:id", asyncRoute(async (req: Request, res: Respons
     return;
   }
   res.json(result);
+}));
+
+// 18. Conversation Hub - save an answer to a prompt
+app.post("/api/conversation/answer", asyncRoute(async (req: Request, res: Response) => {
+  const { promptId, question, answeredBy, answer } = req.body;
+  if (!promptId || !question || !answeredBy || !answer) {
+    res.status(400).json({ error: "Missing required fields" });
+    return;
+  }
+  const entry = await withSanctuaryTransaction((db, setDb) => {
+    const item: ConversationAnswer = {
+      id: `convo_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      promptId,
+      question,
+      answeredBy,
+      answer,
+      timestamp: new Date().toISOString()
+    };
+    setDb({ conversationAnswers: [item, ...(db.conversationAnswers || [])] });
+    return item;
+  });
+  res.json(entry);
+}));
+
+app.delete("/api/conversation/answer/:id", asyncRoute(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ conversationAnswers: (db.conversationAnswers || []).filter(a => a.id !== id) });
+  });
+  res.json({ success: true });
+}));
+
+// 19. Story Engine - advance/reset the saved branching-choice progress
+app.post("/api/story/advance", asyncRoute(async (req: Request, res: Response) => {
+  const { stepId } = req.body;
+  if (!stepId) {
+    res.status(400).json({ error: "stepId is required" });
+    return;
+  }
+  const progress = await withSanctuaryTransaction((db, setDb) => {
+    const current = db.storyProgress || { currentStepId: "root", history: [], updatedAt: new Date().toISOString() };
+    const next: StoryProgress = {
+      currentStepId: stepId,
+      history: [...current.history, stepId],
+      updatedAt: new Date().toISOString()
+    };
+    setDb({ storyProgress: next });
+    return next;
+  });
+  res.json(progress);
+}));
+
+app.post("/api/story/reset", asyncRoute(async (req: Request, res: Response) => {
+  const progress = await withSanctuaryTransaction((db, setDb) => {
+    const next: StoryProgress = { currentStepId: "root", history: [], updatedAt: new Date().toISOString() };
+    setDb({ storyProgress: next });
+    return next;
+  });
+  res.json(progress);
 }));
 
 
