@@ -58,19 +58,12 @@ steps:
   # broke earlier in the build.
   - name: 'gcr.io/cloud-builders/curl'
     entrypoint: 'bash'
+    env:
+      - 'RESEND_API_KEY=${_RESEND_API_KEY}'
+      - 'NOTIFY_EMAIL=${_NOTIFY_EMAIL}'
+      - 'COMMIT_SHA=${SHORT_SHA}'
     args:
-      - '-c'
-      - |
-        # _NOTIFY_EMAIL can be one address or several comma-separated
-        # addresses (e.g. "a@x.com,b@y.com") - build a proper JSON array
-        # from it rather than dropping the raw string into one array slot,
-        # which would send to a single literal (and invalid) address
-        # containing a comma.
-        TO_JSON=$(echo "${_NOTIFY_EMAIL}" | tr ',' '\n' | sed '/^$/d' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/.*/"&"/' | paste -sd ',' -)
-        curl -s -X POST 'https://api.resend.com/emails' \
-          -H "Authorization: Bearer ${_RESEND_API_KEY}" \
-          -H 'Content-Type: application/json' \
-          -d "{\"from\":\"Our Sanctuary Build <onboarding@resend.dev>\",\"to\":[$TO_JSON],\"subject\":\"Build succeeded - our-sanctuary-service\",\"text\":\"Commit ${SHORT_SHA} built and deployed successfully.\"}"
+      - 'scripts/notify-build-complete.sh'
 
 images:
   - 'australia-southeast1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/our-sanctuary/our-sanctuary-service:${SHORT_SHA}'
