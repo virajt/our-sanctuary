@@ -14,10 +14,10 @@ export default function TimelineDashboard({
   onDeleteTeaser,
 }: {
   db: SanctuaryDB;
-  onAddDate: (date: any) => void;
-  onDeleteDate: (id: string) => void;
-  onAddTeaser: (teaser: any) => void;
-  onDeleteTeaser: (id: string) => void;
+  onAddDate: any;
+  onDeleteDate: any;
+  onAddTeaser: any;
+  onDeleteTeaser: any;
 }) {
   const [activeSubTab, setActiveSubTab] = useState<"dates" | "teasers">("dates");
 

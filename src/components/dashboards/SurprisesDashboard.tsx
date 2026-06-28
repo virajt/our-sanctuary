@@ -23,14 +23,14 @@ export default function SurprisesDashboard({
   db: SanctuaryDB;
   onClaim: (id: string, by: "Him" | "Her") => void;
   onRedeem: (id: string) => void;
-  onAddGift: (gift: any) => void;
-  onDeleteCustom: (id: string) => void;
-  onGiveRealGift: (id: string) => void;
-  onReceiveRealGift: (id: string) => void;
-  onAddRealGift: (gift: any) => void;
-  onDeleteRealGift: (id: string) => void;
-  onAddPurchase: (purchase: any) => void;
-  onDeletePurchase: (id: string) => void;
+  onAddGift: any;
+  onDeleteCustom: any;
+  onGiveRealGift: any;
+  onReceiveRealGift: any;
+  onAddRealGift: any;
+  onDeleteRealGift: any;
+  onAddPurchase: any;
+  onDeletePurchase: any;
 }) {
   const [activeSubTab, setActiveSubTab] = useState<"vouchers" | "gifts" | "wishlist">("vouchers");
 

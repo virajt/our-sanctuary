@@ -17,21 +17,9 @@ export default function LifeDashboard({
   db: SanctuaryDB;
   periodConfig: PeriodConfig;
   cycleLogs: CycleLog[];
-  onUpdatePeriodConfig: (lastPeriodDate: string, cycleLength: number, periodLength: number, pregnancyMode?: boolean, pregnancyStartDate?: string) => void;
-  onAddPeriodLog: (
-    date: string,
-    symptoms: string[],
-    moods: string[],
-    intimacyLevel: CycleLog["intimacyLevel"],
-    notes?: string,
-    flow?: CycleLog["flow"],
-    temperature?: number,
-    weight?: number,
-    waterIntake?: number,
-    sleepDuration?: number,
-    sex?: CycleLog["sex"]
-  ) => void;
-  onUpdateKitchen: () => void;
+  onUpdatePeriodConfig: any;
+  onAddPeriodLog: any;
+  onUpdateKitchen: any;
 }) {
   const [activeSubTab, setActiveSubTab] = useState<"cycle" | "kitchen">("cycle");
 

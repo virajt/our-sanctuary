@@ -15,10 +15,10 @@ export default function MemoriesDashboard({
   onDeleteLibraryItem,
 }: {
   db: SanctuaryDB;
-  onAddPhoto: (photo: any) => void;
-  onDeletePhoto: (id: string) => void;
-  onAddLibraryItem: (item: any) => void;
-  onDeleteLibraryItem: (id: string) => void;
+  onAddPhoto: any;
+  onDeletePhoto: any;
+  onAddLibraryItem: any;
+  onDeleteLibraryItem: any;
 }) {
   const [activeSubTab, setActiveSubTab] = useState<"vault" | "library">("vault");
 

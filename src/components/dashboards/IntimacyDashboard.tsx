@@ -13,7 +13,7 @@ export default function IntimacyDashboard({
   navigate,
 }: {
   db: SanctuaryDB;
-  onGenerateWicked: (target: any, intensity?: string) => Promise<any>;
+  onGenerateWicked: any;
   isLoading: boolean;
   navigate: (path: string) => void;
 }) {
