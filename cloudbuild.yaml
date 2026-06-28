@@ -21,33 +21,26 @@ steps:
       - 'australia-southeast1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/our-sanctuary/our-sanctuary-service:${SHORT_SHA}'
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
+    entrypoint: bash
+    env:
+      - 'RESEND_API_KEY=${_RESEND_API_KEY}'
+      - 'NOTIFY_EMAIL=virajttrivedi@gmail.com'
+      - 'COMMIT_SHA=${SHORT_SHA}'
     args:
-      - 'run'
-      - 'deploy'
-      - 'our-sanctuary-service'
-      - '--image'
-      - 'australia-southeast1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/our-sanctuary/our-sanctuary-service:${SHORT_SHA}'
-      - '--region'
-      - 'australia-southeast1'
-      - '--allow-unauthenticated'
-      - '--update-env-vars'
-      - 'GEMINI_API_KEY=${_GEMINI_KEY},FIRESTORE_DATABASE_ID=our-sanctuary,MEDIA_BUCKET_NAME=the-parent-500004-sanctuary-media'
-      # Runtime auth vars (GOOGLE_CLIENT_ID, ALLOWED_EMAILS, SESSION_SECRET)
-      # are managed directly on the Cloud Run service via the console
-      # ("Edit & Deploy New Revision" -> Variables & Secrets). We deliberately
-      # use --update-env-vars (not --set-env-vars) above so this step only
-      # ever touches GEMINI_API_KEY and never wipes those other variables -
-      # --set-env-vars is destructive and deletes any existing runtime
-      # variable not explicitly listed in it, which would otherwise silently
-      # break sign-in on every deploy.
-      - '--add-volume'
-      - 'name=db-volume,type=cloud-storage,bucket=the-parent-500004-sanctuary-data'
-      - '--add-volume-mount'
-      - 'volume=db-volume,mount-path=/app/data'
-      - '--project'
-      - 'the-parent-500004'
-      - '--quiet'
+      - '-c'
+      - |
+        if ! gcloud run deploy our-sanctuary-service \
+          --image australia-southeast1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/our-sanctuary/our-sanctuary-service:${SHORT_SHA} \
+          --region australia-southeast1 \
+          --allow-unauthenticated \
+          --update-env-vars GEMINI_API_KEY=${_GEMINI_KEY},FIRESTORE_DATABASE_ID=our-sanctuary,MEDIA_BUCKET_NAME=the-parent-500004-sanctuary-media \
+          --add-volume name=db-volume,type=cloud-storage,bucket=the-parent-500004-sanctuary-data \
+          --add-volume-mount volume=db-volume,mount-path=/app/data \
+          --project the-parent-500004 \
+          --quiet; then
+            bash scripts/notify-build-failed.sh "Cloud Run Deploy Failed"
+            exit 1
+        fi
 
   # Build-completion email. Cloud Build's automatic "approval required"
   # email is built into the platform itself - this step is the closest

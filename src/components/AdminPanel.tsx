@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { AdminSettings, SanctuaryDB, CycleLog, PeriodConfig } from "../types";
-import { Shield, Settings, Sliders, Database, Eye, Check, Plus, RefreshCw, Trash, HelpCircle, CalendarHeart } from "lucide-react";
+import { Shield, Settings, Sliders, Database, Eye, Check, Plus, RefreshCw, Trash, CircleHelp, CalendarHeart } from "lucide-react";
 import { motion } from "motion/react";
 import CycleCalendar from "./CycleCalendar";
 

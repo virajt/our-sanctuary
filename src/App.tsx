@@ -7,7 +7,7 @@ import LifeDashboard from "./components/dashboards/LifeDashboard";
 import MemoriesDashboard from "./components/dashboards/MemoriesDashboard";
 import IntimacyDashboard from "./components/dashboards/IntimacyDashboard";
 import TimelineDashboard from "./components/dashboards/TimelineDashboard";
-import NavigationRing from "./components/navigation/NavigationRing";
+import SideNav from "./components/navigation/SideNav";
 import GoogleSignIn from "./components/GoogleSignIn";
 import ConnectionHubView from "./connection-hub/ConnectionHubView";
 import { SanctuaryTheme } from "./components/effects/EmberFieldBackground";
@@ -739,10 +739,10 @@ export default function App() {
           <MusicPlayer />
         </section>
 
-        <NavigationRing activePath={activePath} navigate={navigate as any} />
+        <SideNav activePath={activePath} navigate={navigate as any} />
 
         {/* Switch panel view transitions container */}
-        <main className="max-w-6xl mx-auto pt-4 pb-12" id="sanctuary-panels">
+        <main className="max-w-6xl mx-auto pt-4 pb-12 pl-[60px]" id="sanctuary-panels">
           <AnimatePresence mode="wait">
             
             {activePath.startsWith("/surprises") && (
@@ -769,7 +769,7 @@ export default function App() {
               </motion.div>
             )}
 
-            {activePath.startsWith("/fantasy") && (
+            {activePath.startsWith("/intimacy") && (
               <motion.div
                 initial={{ opacity: 0, y: 18, scale: 0.985 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}

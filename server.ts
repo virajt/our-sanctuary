@@ -130,9 +130,55 @@ app.post("/internal/run-reminders", asyncRoute(async (req: Request, res: Respons
       }
 
       if (daysUntil === 0 || daysUntil === d.reminderDaysAhead) {
-        const subject = daysUntil === 0 ? `Today: ${d.title}` : `Coming up in ${daysUntil} day(s): ${d.title}`;
-        const body = `${d.title}${d.description ? `\n\n${d.description}` : ""}\n\nDate: ${d.date}`;
-        sendReminderEmail(d.remindWho, subject, body).catch((err) => console.error("[reminders] Failed to send date email:", err));
+        const isToday = daysUntil === 0;
+        const subject = isToday ? `Today: ${d.title}` : `Approaching in ${daysUntil} day(s): ${d.title}`;
+        
+        let fromName = "Our Sanctuary";
+        let greeting = "My love,";
+        let signoff = "Forever yours,";
+        
+        if (d.remindWho === "Her") {
+          fromName = "Your Loving Husband";
+          greeting = "My beautiful wife,";
+          signoff = "With all my devotion,<br>Your Husband";
+        } else if (d.remindWho === "Him") {
+          fromName = "Your Devoted Wife";
+          greeting = "My handsome husband,";
+          signoff = "Waiting for you,<br>Your Wife";
+        }
+
+        const htmlBody = `
+        <div style="background-color: #050505; color: #f5f5f7; font-family: sans-serif; padding: 40px 20px;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #111114; border: 1px solid #33001b; border-radius: 20px; padding: 40px; box-shadow: 0 10px 30px rgba(220, 20, 60, 0.1);">
+            <div style="font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: #ff8ba7; margin-bottom: 20px; text-align: center;">
+              Sanctuary Memory Vault
+            </div>
+            <h2 style="color: #ffdde6; font-size: 24px; font-weight: 300; margin-bottom: 30px; text-align: center;">
+              ${greeting}
+            </h2>
+            <p style="font-size: 16px; line-height: 1.8; color: #c9c4c6; margin-bottom: 20px;">
+              ${isToday ? "Today is finally here." : `We are only ${daysUntil} days away.`} I have been thinking endlessly about our upcoming moment together: <strong>${d.title}</strong>.
+            </p>
+            ${d.description ? `
+            <div style="background-color: #1a0810; border-left: 2px solid #ff4d6d; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+              <p style="font-size: 15px; font-style: italic; color: #ffb3c6; margin: 0; line-height: 1.6;">
+                "${d.description}"
+              </p>
+            </div>
+            ` : ""}
+            <p style="font-size: 16px; line-height: 1.8; color: #c9c4c6; margin-bottom: 40px;">
+              I want nothing more than to lose myself in you when this day arrives. Prepare yourself for me.
+            </p>
+            <div style="text-align: center; border-top: 1px solid #2a161d; padding-top: 30px;">
+              <p style="font-size: 14px; color: #ff8ba7; margin: 0;">
+                ${signoff}
+              </p>
+            </div>
+          </div>
+        </div>
+        `;
+
+        sendReminderEmail(d.remindWho, subject, htmlBody, true, fromName).catch((err) => console.error("[reminders] Failed to send date email:", err));
         dates[i] = { ...d, lastNotifiedDate: todayStr };
         changed = true;
         datesNotified++;
@@ -157,8 +203,50 @@ app.post("/internal/run-reminders", asyncRoute(async (req: Request, res: Respons
 
       for (const hint of t.hints) {
         if (hint.daysBefore === daysUntilTarget && !sentDays.includes(hint.daysBefore)) {
-          const subject = hint.daysBefore === 0 ? `Tonight: ${t.title}` : `${t.title} - ${hint.daysBefore} day(s) away`;
-          sendReminderEmail(t.notifyWho, subject, hint.message).catch((err) => console.error("[reminders] Failed to send teaser hint:", err));
+          const isTonight = hint.daysBefore === 0;
+          const subject = isTonight ? `Tonight: ${t.title}` : `${t.title} - Only ${hint.daysBefore} days left`;
+          
+          let fromName = "Our Sanctuary";
+          let signoff = "Eagerly yours,";
+          
+          if (t.notifyWho === "Her") {
+            fromName = "Your Husband";
+            signoff = "Anticipating you,<br>Your Husband";
+          } else if (t.notifyWho === "Him") {
+            fromName = "Your Wife";
+            signoff = "Craving you,<br>Your Wife";
+          }
+
+          const htmlBody = `
+          <div style="background-color: #050505; color: #f5f5f7; font-family: sans-serif; padding: 40px 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #111114; border: 1px solid #1a0033; border-radius: 20px; padding: 40px; box-shadow: 0 10px 30px rgba(138, 43, 226, 0.08);">
+              <div style="font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: #b794f4; margin-bottom: 25px; text-align: center;">
+                Sanctuary Teaser Sequence
+              </div>
+              <h2 style="color: #e9d8fd; font-size: 22px; font-weight: 300; margin-bottom: 30px; text-align: center;">
+                ${isTonight ? "The wait is over." : "The anticipation builds..."}
+              </h2>
+              
+              <div style="background: linear-gradient(145deg, #160f24, #0f0a1a); border: 1px solid #2d1b4e; padding: 30px 25px; margin: 25px 0; border-radius: 12px; text-align: center;">
+                <p style="font-size: 17px; font-style: italic; color: #d6bcfa; margin: 0; line-height: 1.7; letter-spacing: 0.5px;">
+                  "${hint.message}"
+                </p>
+              </div>
+
+              <p style="font-size: 15px; line-height: 1.8; color: #a0aec0; margin-bottom: 35px; text-align: center;">
+                Keep this in your mind. Let it consume your thoughts until we are finally alone.
+              </p>
+              
+              <div style="text-align: center; border-top: 1px solid #1a1025; padding-top: 25px;">
+                <p style="font-size: 14px; color: #b794f4; margin: 0;">
+                  ${signoff}
+                </p>
+              </div>
+            </div>
+          </div>
+          `;
+
+          sendReminderEmail(t.notifyWho, subject, htmlBody, true, fromName).catch((err) => console.error("[reminders] Failed to send teaser hint:", err));
           sentDays.push(hint.daysBefore);
           changed = true;
           teaserHintsNotified++;

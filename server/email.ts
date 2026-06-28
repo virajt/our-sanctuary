@@ -9,7 +9,7 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 
 export type EmailRecipient = "Him" | "Her" | "Both";
 
-export async function sendReminderEmail(who: EmailRecipient, subject: string, body: string, isHtml: boolean = false): Promise<void> {
+export async function sendReminderEmail(who: EmailRecipient, subject: string, body: string, isHtml: boolean = false, fromName: string = "Our Sanctuary"): Promise<void> {
   const db = await readDB();
   const config = db.adminSettings.notificationConfig;
   
@@ -38,7 +38,7 @@ export async function sendReminderEmail(who: EmailRecipient, subject: string, bo
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Our Sanctuary <onboarding@resend.dev>",
+        from: `${fromName} <onboarding@resend.dev>`,
         to: addrs,
         subject,
         ...(isHtml ? { html: body } : { text: body }),

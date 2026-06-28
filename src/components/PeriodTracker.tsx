@@ -6,7 +6,7 @@ import MagneticButton from "./effects/MagneticButton";
 import { PeriodConfig, CycleLog, CyclePhase, PhaseProtocol } from "../types";
 import { 
   Calendar, Brain, Heart, Sparkles, Utensils, Plus, Lock, 
-  FileText, UploadCloud, AlertCircle, Loader2, Check, 
+  FileText, UploadCloud, CircleAlert, Loader2, Check, 
   Download, Moon, Droplets, Scale, Thermometer, Info, 
   ChevronRight, BarChart3, ShieldCheck, Activity, Eye, Zap
 } from "lucide-react";
@@ -665,7 +665,7 @@ export default function PeriodTracker({ config, logs, onUpdateConfig, onAddLog, 
             {/* Error notifications */}
             {uploadError && (
               <div className="p-4 bg-red-950/30 border border-red-900/50 rounded-2xl flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                <CircleAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
                 <div className="text-xs text-red-300 space-y-1 text-left">
                   <p className="font-semibold text-red-400">Failed to analyze cycle document</p>
                   <p className="leading-relaxed">{uploadError}</p>

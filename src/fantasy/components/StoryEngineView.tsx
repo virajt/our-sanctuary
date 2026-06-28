@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, RotateCcw, ChevronRight, HelpCircle, Heart, Flame, ShieldAlert, Sparkles, AlertCircle } from 'lucide-react';
+import { Play, RotateCcw, ChevronRight, CircleHelp, Heart, Flame, ShieldAlert, Sparkles, CircleAlert } from 'lucide-react';
 import { ScreenType, StoryStep } from '../types';
 import { STORY_STEPS } from '../data';
 
