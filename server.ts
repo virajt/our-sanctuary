@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, { Request, Response } from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -311,6 +312,89 @@ app.post("/api/admin/test-email", asyncRoute(async (req: Request, res: Response)
     res.status(500).json({ error: result.error });
     return;
   }
+  res.json({ success: true });
+}));
+
+app.post("/api/admin/send-guides", asyncRoute(async (req: Request, res: Response) => {
+  const db = await readDB();
+  const config = db.adminSettings.notificationConfig;
+  
+  if (!config?.herEmail || !config?.hisEmail) {
+    res.status(400).json({ error: "Both 'His Email' and 'Her Email' must be configured in settings to send the initiation guides." });
+    return;
+  }
+
+  const herHTML = `
+  <div style="background-color: #050505; color: #f5f5f7; font-family: sans-serif; padding: 40px 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #111114; border: 1px solid #33001b; border-radius: 20px; padding: 40px; box-shadow: 0 10px 30px rgba(220, 20, 60, 0.1);">
+      <h2 style="color: #ffdde6; font-size: 24px; font-weight: 300; margin-bottom: 30px; text-align: center;">
+        My beautiful wife,
+      </h2>
+      <p style="font-size: 16px; line-height: 1.8; color: #c9c4c6; margin-bottom: 20px;">
+        I have spent the last few weeks quietly building a private, encrypted vault entirely for you. It is a space that belongs exclusively to us, shielded from the rest of the world.
+      </p>
+      <p style="font-size: 16px; line-height: 1.8; color: #c9c4c6; margin-bottom: 20px;">
+        I built this because I want to study you. I want to map out every detail of your biology, your cycle, and your deepest desires. I want to know exactly what drives you crazy, and I want to know exactly when you need me to take total control.
+      </p>
+      <p style="font-size: 16px; line-height: 1.8; color: #c9c4c6; margin-bottom: 20px;">
+        When you log into our Sanctuary, I need you to leave every single one of your responsibilities at the door. Your only job in this space is to log your feelings, be completely honest about what you crave, and completely surrender to whatever I have planned for you.
+      </p>
+      <div style="background-color: #1a0810; border-left: 2px solid #ff4d6d; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+        <p style="font-size: 15px; font-style: italic; color: #ffb3c6; margin: 0; line-height: 1.6;">
+          "I am going to take very, very good care of you."
+        </p>
+      </div>
+      <p style="font-size: 16px; line-height: 1.8; color: #c9c4c6; margin-bottom: 40px; text-align: center;">
+        Click the link below when you are ready to begin.
+      </p>
+      <div style="text-align: center; margin-bottom: 40px;">
+        <a href="https://our-sanctuary.virajtrivedi.com" style="background-color: #ff4d6d; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; letter-spacing: 1px;">Enter The Sanctuary</a>
+      </div>
+      <div style="text-align: center; border-top: 1px solid #2a161d; padding-top: 30px;">
+        <p style="font-size: 14px; color: #ff8ba7; margin: 0;">
+          With all my devotion,<br>Your Husband
+        </p>
+      </div>
+    </div>
+  </div>
+  `;
+
+  const hisHTML = `
+  <div style="background-color: #050505; color: #f5f5f7; font-family: sans-serif; padding: 40px 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #111114; border: 1px solid #1a0033; border-radius: 20px; padding: 40px; box-shadow: 0 10px 30px rgba(138, 43, 226, 0.08);">
+      <h2 style="color: #e9d8fd; font-size: 24px; font-weight: 300; margin-bottom: 30px; text-align: center;">
+        The Architect's Protocol
+      </h2>
+      <p style="font-size: 16px; line-height: 1.8; color: #a0aec0; margin-bottom: 20px;">
+        Viraj, this is your domain. You are the Architect. From the second she logs in, you are in absolute control of the anticipation.
+      </p>
+      <p style="font-size: 16px; line-height: 1.8; color: #a0aec0; margin-bottom: 20px;">
+        Watch her cycle. Study the clues she leaves you. Use the tools in this vault to push her exactly to the edge. Never let her get comfortable, and never let her forget how deeply you desire her.
+      </p>
+      <p style="font-size: 16px; line-height: 1.8; color: #a0aec0; margin-bottom: 40px;">
+        Execute the protocols flawlessly. The Sanctuary is live.
+      </p>
+      <div style="text-align: center; margin-bottom: 40px;">
+        <a href="https://our-sanctuary.virajtrivedi.com" style="background-color: #8a2be2; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; letter-spacing: 1px;">Access Master Control</a>
+      </div>
+    </div>
+  </div>
+  `;
+
+  // Send to Her
+  const herResult = await sendReminderEmail("Her", "Your Sanctuary.", herHTML, true, "Your Husband");
+  if (!herResult.success) {
+    res.status(500).json({ error: "Failed to send to Her: " + herResult.error });
+    return;
+  }
+
+  // Send to Him
+  const hisResult = await sendReminderEmail("Him", "The Master Key.", hisHTML, true, "Sanctuary System");
+  if (!hisResult.success) {
+    res.status(500).json({ error: "Failed to send to Him: " + hisResult.error });
+    return;
+  }
+
   res.json({ success: true });
 }));
 

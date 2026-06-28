@@ -149,6 +149,7 @@ export interface NotificationConfig {
   dailyPrompts: boolean;
   hisEmail?: string;
   herEmail?: string;
+  resendApiKey?: string;
 }
 
 export interface ImportantDate {

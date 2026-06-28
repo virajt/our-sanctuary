@@ -85,6 +85,24 @@ export default function AdminPanel({
     }
   };
 
+  const handleSendInitiation = async () => {
+    setTestEmailStatus({ loading: true, error: null, success: null });
+    try {
+      const res = await fetch("/api/admin/send-guides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTestEmailStatus({ loading: false, error: data.error || "Failed to send Initiation Guides", success: null });
+      } else {
+        setTestEmailStatus({ loading: false, error: null, success: "Initiation Guides successfully transmitted to both of you." });
+      }
+    } catch (err) {
+      setTestEmailStatus({ loading: false, error: String(err), success: null });
+    }
+  };
+
   const handleLoadTemplate = () => {
     if (importFormat === "json") {
       const sample = [
@@ -503,6 +521,20 @@ export default function AdminPanel({
                   className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-800"
                 />
               </div>
+
+              <div className="space-y-4 pt-4 border-t border-luxury-800/50">
+                <label className="text-xs text-neutral-400 font-medium block uppercase tracking-wider">Resend API Key</label>
+                <input
+                  type="password"
+                  value={localSettings.notificationConfig?.resendApiKey || ""}
+                  onChange={(e) => setLocalSettings({
+                    ...localSettings,
+                    notificationConfig: { ...(localSettings.notificationConfig as any), resendApiKey: e.target.value }
+                  })}
+                  placeholder="re_..."
+                  className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-800"
+                />
+              </div>
             </div>
             
             {/* Test Email Section */}
@@ -548,6 +580,16 @@ export default function AdminPanel({
                 >
                   {testEmailStatus.loading ? "Sending..." : "Test 'Her' Email"}
                 </button>
+              </div>
+              <div className="pt-2">
+                <button
+                  onClick={handleSendInitiation}
+                  disabled={testEmailStatus.loading || !localSettings.notificationConfig?.herEmail || !localSettings.notificationConfig?.hisEmail}
+                  className="w-full bg-red-950 hover:bg-red-900 border border-red-800 text-white px-4 py-3 rounded-xl text-xs font-medium uppercase tracking-wider transition-all disabled:opacity-50 glow-red"
+                >
+                  {testEmailStatus.loading ? "Transmitting..." : "Send Initiation Protocols"}
+                </button>
+                <p className="text-[10px] text-neutral-500 mt-2 text-center">This will instantly dispatch the seductive 'Muse's Manual' to her, and the 'Architect's Protocol' to you.</p>
               </div>
             </div>
 

@@ -5,7 +5,6 @@
 
 import { readDB } from "./firestoreDb";
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 
 export type EmailRecipient = "Him" | "Her" | "Both";
 
@@ -25,20 +24,21 @@ export async function sendReminderEmail(who: EmailRecipient, subject: string, bo
     console.warn(`[email] No configured recipients for "${who}" - set emails in Admin Panel. Skipping: ${subject}`);
     return { success: false, error: "No configured recipients for this role." };
   }
-  if (!RESEND_API_KEY) {
-    console.warn(`[email] RESEND_API_KEY is not set - skipping email: ${subject}`);
-    return { success: false, error: "RESEND_API_KEY is not set in environment." };
+  const apiKey = config?.resendApiKey;
+  if (!apiKey) {
+    console.warn(`[email] Resend API Key is not set in Admin Settings - skipping email: ${subject}`);
+    return { success: false, error: "Resend API Key is not configured in Admin Panel." };
   }
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${fromName} <onboarding@resend.dev>`,
+        from: `${fromName} <Sanctuary@virajtrivedi.com>`,
         to: addrs,
         subject,
         ...(isHtml ? { html: body } : { text: body }),
