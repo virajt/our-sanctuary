@@ -20,6 +20,67 @@ const RING_ITEMS: RingItem[] = [
   { path: "/admin", label: "Settings", icon: <Settings className="w-8 h-8" />, color: "text-neutral-400" },
 ];
 
+// Sub-component to safely use useTransform hook per item
+function RingItemView({ 
+  item, 
+  index, 
+  angleStep, 
+  radius, 
+  activePath, 
+  smoothRotation, 
+  navigate, 
+  setIsOpen 
+}: {
+  item: RingItem;
+  index: number;
+  angleStep: number;
+  radius: number;
+  activePath: string;
+  smoothRotation: any;
+  navigate: (path: NavPath) => void;
+  setIsOpen: (v: boolean) => void;
+}) {
+  const angle = index * angleStep;
+  const isActive = activePath.startsWith(item.path);
+  
+  // Safe to call hook here because it's at the top level of a function component
+  const counterRotation = useTransform(smoothRotation, (r) => `${-angle - (Number(r) || 0)}deg`);
+
+  return (
+    <motion.div
+      className="absolute top-0 left-0 w-full h-full flex items-center justify-center"
+      style={{
+        transform: `rotateY(${angle}deg) translateZ(${radius}px)`,
+        transformStyle: "preserve-3d"
+      }}
+    >
+      <motion.button
+        onClick={() => {
+          navigate(item.path);
+          setIsOpen(false);
+        }}
+        className={`group relative flex flex-col items-center justify-center w-32 h-40 rounded-2xl border transition-all duration-300 ${
+          isActive 
+            ? "bg-white/10 border-white/40 shadow-[0_0_30px_rgba(255,255,255,0.2)]" 
+            : "bg-black/50 border-white/10 hover:bg-white/5 hover:border-white/30"
+        }`}
+        style={{
+          rotateY: counterRotation
+        }}
+      >
+        <div className={`p-4 rounded-full bg-black/40 border border-white/5 mb-3 group-hover:scale-110 transition-transform ${item.color}`}>
+          {item.icon}
+        </div>
+        <span className="text-white text-xs tracking-widest uppercase font-mono">{item.label}</span>
+        
+        {isActive && (
+          <div className="absolute inset-0 rounded-2xl border-2 border-rose-500/50 animate-pulse pointer-events-none" />
+        )}
+      </motion.button>
+    </motion.div>
+  );
+}
+
 export default function NavigationRing({ activePath, navigate }: { activePath: string, navigate: (path: NavPath) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   
@@ -98,46 +159,19 @@ export default function NavigationRing({ activePath, navigate }: { activePath: s
                 }}
                 className="relative w-64 h-64 flex items-center justify-center"
               >
-                {RING_ITEMS.map((item, index) => {
-                  const angle = index * angleStep;
-                  const isActive = activePath.startsWith(item.path);
-                  
-                  return (
-                    <motion.div
-                      key={item.path}
-                      className="absolute top-0 left-0 w-full h-full flex items-center justify-center"
-                      style={{
-                        transform: `rotateY(${angle}deg) translateZ(${radius}px)`,
-                        transformStyle: "preserve-3d"
-                      }}
-                    >
-                      <motion.button
-                        onClick={() => {
-                          navigate(item.path);
-                          setIsOpen(false);
-                        }}
-                        className={`group relative flex flex-col items-center justify-center w-32 h-40 rounded-2xl border transition-all duration-300 ${
-                          isActive 
-                            ? "bg-white/10 border-white/40 shadow-[0_0_30px_rgba(255,255,255,0.2)]" 
-                            : "bg-black/50 border-white/10 hover:bg-white/5 hover:border-white/30"
-                        }`}
-                        style={{
-                          // Synchronized counter-rotation, explicitly returning a string with 'deg' to prevent NaN crashes
-                          rotateY: useTransform(smoothRotation, (r) => `${-angle - (Number(r) || 0)}deg`)
-                        }}
-                      >
-                        <div className={`p-4 rounded-full bg-black/40 border border-white/5 mb-3 group-hover:scale-110 transition-transform ${item.color}`}>
-                          {item.icon}
-                        </div>
-                        <span className="text-white text-xs tracking-widest uppercase font-mono">{item.label}</span>
-                        
-                        {isActive && (
-                          <div className="absolute inset-0 rounded-2xl border-2 border-rose-500/50 animate-pulse pointer-events-none" />
-                        )}
-                      </motion.button>
-                    </motion.div>
-                  );
-                })}
+                {RING_ITEMS.map((item, index) => (
+                  <RingItemView
+                    key={item.path}
+                    item={item}
+                    index={index}
+                    angleStep={angleStep}
+                    radius={radius}
+                    activePath={activePath}
+                    smoothRotation={smoothRotation}
+                    navigate={navigate}
+                    setIsOpen={setIsOpen}
+                  />
+                ))}
               </motion.div>
             </motion.div>
             
