@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, useAnimation, useMotionValue, useTransform, animate } from 'motion/react';
+import { motion, useAnimation, useMotionValue, useTransform, animate, AnimatePresence } from 'motion/react';
 import { Sparkles, Heart, Package, Utensils, Bell, Camera, Settings, Compass } from 'lucide-react';
 import { NavPath } from './MacDock';
 
