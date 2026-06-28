@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Calendar, Utensils } from "lucide-react";
 
-import CycleTrackerView from "../CycleTrackerView";
+import PeriodTracker from "../PeriodTracker";
 import KitchenAlignment from "../KitchenAlignment";
 import { SanctuaryDB, CycleLog, PeriodConfig } from "../../types";
 
@@ -88,11 +88,12 @@ export default function LifeDashboard({
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
-              <CycleTrackerView
+              <PeriodTracker
                 config={periodConfig}
                 logs={cycleLogs}
                 onUpdateConfig={onUpdatePeriodConfig}
                 onAddLog={onAddPeriodLog}
+                onImportSuccess={onUpdateKitchen}
               />
             </motion.div>
           )}

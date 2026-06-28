@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { Camera, Image as ImageIcon } from "lucide-react";
 
 import PrivateGallery from "../PrivateGallery";
-import VisualLibrary from "../VisualLibrary";
+import VisualLibraryView from "../VisualLibraryView";
+import { VISUAL_LIBRARY } from "../../data/fantasyContent";
 import { SanctuaryDB } from "../../types";
 
 export default function MemoriesDashboard({
@@ -91,10 +92,8 @@ export default function MemoriesDashboard({
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
-              <VisualLibrary
-                items={db.visualLibrary || []}
-                onAddItem={onAddLibraryItem}
-                onDeleteItem={onDeleteLibraryItem}
+              <VisualLibraryView
+                items={VISUAL_LIBRARY}
               />
             </motion.div>
           )}
