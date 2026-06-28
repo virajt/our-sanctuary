@@ -92,7 +92,7 @@ export default function TouchMap({ db, fetchDb }: { db: SanctuaryDB; fetchDb: ()
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               className="absolute w-6 h-6 -ml-3 -mt-3 flex items-center justify-center pointer-events-none"
-              style={{ left: \`\${spot.x}%\`, top: \`\${spot.y}%\` }}
+              style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
             >
               <div className={`absolute inset-0 rounded-full animate-ping opacity-50 ${
                 spot.intensity === "Soft" ? "bg-pink-400" :
