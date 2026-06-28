@@ -585,7 +585,7 @@ app.post("/api/period/log", asyncRoute(async (req: Request, res: Response) => {
 
 // 8. Admin Settings Update
 app.post("/api/admin/settings", asyncRoute(async (req: Request, res: Response) => {
-  const { vibeIntensity, periodRemindersEnabled, wickedActions, wickedBodyParts, photoThemes, photoSetups, theme, voucherCategories, giftCategories } = req.body;
+  const { vibeIntensity, periodRemindersEnabled, wickedActions, wickedBodyParts, photoThemes, photoSetups, theme, voucherCategories, giftCategories, notificationConfig } = req.body;
   const settings = await withSanctuaryTransaction((db, setDb) => {
     const adminSettings: AdminSettings = {
       vibeIntensity: vibeIntensity || db.adminSettings.vibeIntensity,
@@ -596,7 +596,8 @@ app.post("/api/admin/settings", asyncRoute(async (req: Request, res: Response) =
       photoSetups: photoSetups || db.adminSettings.photoSetups,
       theme: theme || db.adminSettings.theme || "Passionate Red",
       voucherCategories: voucherCategories || db.adminSettings.voucherCategories || ["Pampering", "Sensual", "Intimate", "Wicked"],
-      giftCategories: giftCategories || db.adminSettings.giftCategories || ["Jewelry", "Experience", "Letter", "Trip", "Keepsake", "Other"]
+      giftCategories: giftCategories || db.adminSettings.giftCategories || ["Jewelry", "Experience", "Letter", "Trip", "Keepsake", "Other"],
+      notificationConfig: notificationConfig !== undefined ? notificationConfig : db.adminSettings.notificationConfig
     };
     setDb({ adminSettings });
     return adminSettings;
