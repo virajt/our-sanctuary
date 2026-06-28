@@ -102,6 +102,24 @@ export interface ImportantDate {
   category: "Anniversary" | "Birthday" | "Special Date" | "Other";
   description?: string;
   reminderDaysAhead: number; // days count to trigger active notifications
+  remindWho: "Him" | "Her" | "Both"; // who needs the email reminder
+  lastNotifiedDate?: string; // YYYY-MM-DD of the most recent reminder sent, to avoid duplicate emails
+}
+
+export interface TeaserHint {
+  daysBefore: number; // e.g. 3, 1, 0 (0 = day-of)
+  message: string;
+}
+
+export interface Teaser {
+  id: string;
+  title: string;
+  targetDate: string; // YYYY-MM-DD - the date/night being teased toward
+  createdBy: "Him" | "Her";
+  notifyWho: "Him" | "Her" | "Both"; // who receives the teaser hints (usually NOT the creator)
+  hints: TeaserHint[]; // sorted descending by daysBefore
+  sentHintDays?: number[]; // which daysBefore values have already been sent, to avoid duplicates
+  createdAt: string;
 }
 
 export interface GiftPurchase {
@@ -187,4 +205,5 @@ export interface SanctuaryDB {
   realGifts?: Gift[]; // the new "Gifts" feature - actual gifts one partner gives the other
   conversationAnswers?: ConversationAnswer[];
   storyProgress?: StoryProgress;
+  teasers?: Teaser[];
 }

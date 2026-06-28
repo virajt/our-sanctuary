@@ -8,7 +8,7 @@ import MagneticButton from "./effects/MagneticButton";
 
 interface DateRemindersViewProps {
   dates: ImportantDate[];
-  onAddDate: (title: string, date: string, category: "Anniversary" | "Birthday" | "Special Date" | "Other", reminderDaysAhead: number, description?: string) => void;
+  onAddDate: (title: string, date: string, category: "Anniversary" | "Birthday" | "Special Date" | "Other", reminderDaysAhead: number, description?: string, remindWho?: "Him" | "Her" | "Both") => void;
   onDeleteDate: (id: string) => void;
 }
 
@@ -17,6 +17,7 @@ export default function DateRemindersView({ dates, onAddDate, onDeleteDate }: Da
   const [title, setTitle] = useState("");
   const [dateStr, setDateStr] = useState("");
   const [category, setCategory] = useState<"Anniversary" | "Birthday" | "Special Date" | "Other">("Anniversary");
+  const [remindWho, setRemindWho] = useState<"Him" | "Her" | "Both">("Both");
   const [reminderDaysAhead, setReminderDaysAhead] = useState(7);
   const [description, setDescription] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -84,7 +85,7 @@ export default function DateRemindersView({ dates, onAddDate, onDeleteDate }: Da
     e.preventDefault();
     if (!title.trim() || !dateStr) return;
 
-    onAddDate(title, dateStr, category, Number(reminderDaysAhead), description);
+    onAddDate(title, dateStr, category, Number(reminderDaysAhead), description, remindWho);
     
     // Clear Form
     setTitle("");
@@ -224,6 +225,19 @@ export default function DateRemindersView({ dates, onAddDate, onDeleteDate }: Da
                     <option value="Birthday">Birthday</option>
                     <option value="Special Date">Special Date / Vacation</option>
                     <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-neutral-400 font-medium">Who needs the reminder?</label>
+                  <select
+                    value={remindWho}
+                    onChange={(e) => setRemindWho(e.target.value as any)}
+                    className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-4 py-3 text-sm text-neutral-300 focus:outline-none focus:border-rose-500/50 transition-colors"
+                  >
+                    <option value="Both">Both of us</option>
+                    <option value="Him">Just him (e.g. her family/friends)</option>
+                    <option value="Her">Just her (e.g. his family/friends)</option>
                   </select>
                 </div>
 

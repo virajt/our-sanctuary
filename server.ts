@@ -16,6 +16,7 @@ import {
   Gift,
   ConversationAnswer,
   StoryProgress,
+  Teaser,
   CycleTrackerDB
 } from "./src/types";
 import {
@@ -41,6 +42,7 @@ import {
   withSanctuaryTransaction,
   withCycleTransaction
 } from "./server/firestoreDb";
+import { sendReminderEmail } from "./server/email";
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -84,6 +86,89 @@ app.post("/api/auth/logout", (req: Request, res: Response) => {
   clearSessionCookie(res);
   res.json({ ok: true });
 });
+
+// --- Scheduled reminder endpoint, called by Cloud Scheduler once a day ---
+// Deliberately placed OUTSIDE /api and before the requireAuth gate below,
+// since Cloud Scheduler has no Google account to sign in with. Secured
+// instead by a shared secret header - anyone calling this without the
+// correct header gets a 401, same outcome as a real auth failure, just a
+// different mechanism since the caller here isn't a person.
+const SCHEDULER_SECRET = process.env.SCHEDULER_SECRET || "";
+
+app.post("/internal/run-reminders", asyncRoute(async (req: Request, res: Response) => {
+  const providedSecret = req.header("X-Scheduler-Secret");
+  if (!SCHEDULER_SECRET || providedSecret !== SCHEDULER_SECRET) {
+    res.status(401).json({ error: "Not authorized." });
+    return;
+  }
+
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+  let datesNotified = 0;
+  let teaserHintsNotified = 0;
+
+  // 1. Important Dates - send once per date when reminderDaysAhead is hit,
+  // and again on the day itself. lastNotifiedDate prevents sending the
+  // same reminder twice if this job runs more than once on the same day.
+  await withSanctuaryTransaction((db, setDb) => {
+    const dates = [...db.importantDates];
+    let changed = false;
+
+    for (let i = 0; i < dates.length; i++) {
+      const d = dates[i];
+      if (d.lastNotifiedDate === todayStr) continue; // already sent today
+
+      const target = new Date(d.date + "T00:00:00");
+      const targetThisYear = new Date(today.getFullYear(), target.getMonth(), target.getDate());
+      let daysUntil = Math.ceil((targetThisYear.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86400000);
+      if (daysUntil < 0) {
+        // Already passed this year for recurring categories (birthdays/anniversaries) - check next year's occurrence instead.
+        const targetNextYear = new Date(today.getFullYear() + 1, target.getMonth(), target.getDate());
+        daysUntil = Math.ceil((targetNextYear.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86400000);
+      }
+
+      if (daysUntil === 0 || daysUntil === d.reminderDaysAhead) {
+        const subject = daysUntil === 0 ? `Today: ${d.title}` : `Coming up in ${daysUntil} day(s): ${d.title}`;
+        const body = `${d.title}${d.description ? `\n\n${d.description}` : ""}\n\nDate: ${d.date}`;
+        sendReminderEmail(d.remindWho, subject, body).catch((err) => console.error("[reminders] Failed to send date email:", err));
+        dates[i] = { ...d, lastNotifiedDate: todayStr };
+        changed = true;
+        datesNotified++;
+      }
+    }
+
+    if (changed) setDb({ importantDates: dates });
+  });
+
+  // 2. Teasers - send each hint exactly once, when today matches
+  // (targetDate - hint.daysBefore).
+  await withSanctuaryTransaction((db, setDb) => {
+    const teasers = [...(db.teasers || [])];
+    let changed = false;
+
+    for (let i = 0; i < teasers.length; i++) {
+      const t = teasers[i];
+      const target = new Date(t.targetDate + "T00:00:00");
+      const daysUntilTarget = Math.ceil((target.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86400000);
+      const sentDays = t.sentHintDays || [];
+
+      for (const hint of t.hints) {
+        if (hint.daysBefore === daysUntilTarget && !sentDays.includes(hint.daysBefore)) {
+          const subject = hint.daysBefore === 0 ? `Tonight: ${t.title}` : `${t.title} - ${hint.daysBefore} day(s) away`;
+          sendReminderEmail(t.notifyWho, subject, hint.message).catch((err) => console.error("[reminders] Failed to send teaser hint:", err));
+          sentDays.push(hint.daysBefore);
+          changed = true;
+          teaserHintsNotified++;
+        }
+      }
+      teasers[i] = { ...t, sentHintDays: sentDays };
+    }
+
+    if (changed) setDb({ teasers });
+  });
+
+  res.json({ success: true, datesNotified, teaserHintsNotified });
+}));
 
 // --- Everything below this line requires a valid, whitelisted session ---
 app.use("/api", requireAuth);
@@ -602,7 +687,7 @@ app.post("/api/admin/settings", asyncRoute(async (req: Request, res: Response) =
 
 // 9. Important Dates System (Task 1)
 app.post("/api/dates", asyncRoute(async (req: Request, res: Response) => {
-  const { id, title, date, category, description, reminderDaysAhead } = req.body;
+  const { id, title, date, category, description, reminderDaysAhead, remindWho } = req.body;
   if (!title || !date || !category) {
      res.status(400).json({ error: "Missing required title, date, or category" });
      return;
@@ -616,7 +701,8 @@ app.post("/api/dates", asyncRoute(async (req: Request, res: Response) => {
       date,
       category,
       description: description || "",
-      reminderDaysAhead: Number(reminderDaysAhead) || 0
+      reminderDaysAhead: Number(reminderDaysAhead) || 0,
+      remindWho: remindWho || (existingIndex !== -1 ? db.importantDates[existingIndex].remindWho : "Both") || "Both"
     };
 
     const importantDates = [...db.importantDates];
@@ -638,6 +724,39 @@ app.delete("/api/dates/:id", asyncRoute(async (req: Request, res: Response) => {
     setDb({ importantDates: db.importantDates.filter(d => d.id !== id) });
   });
   res.json({ success: true, message: "Date notification deleted" });
+}));
+
+
+// 9b. Teasers - escalating private hints toward a planned date/night
+app.post("/api/teasers", asyncRoute(async (req: Request, res: Response) => {
+  const { title, targetDate, createdBy, notifyWho, hints } = req.body;
+  if (!title || !targetDate || !createdBy || !notifyWho || !Array.isArray(hints) || hints.length === 0) {
+    res.status(400).json({ error: "Missing required fields - title, targetDate, createdBy, notifyWho, and at least one hint." });
+    return;
+  }
+  const teaser = await withSanctuaryTransaction((db, setDb) => {
+    const item: Teaser = {
+      id: `teaser_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      title,
+      targetDate,
+      createdBy,
+      notifyWho,
+      hints: [...hints].sort((a, b) => b.daysBefore - a.daysBefore),
+      sentHintDays: [],
+      createdAt: new Date().toISOString()
+    };
+    setDb({ teasers: [item, ...(db.teasers || [])] });
+    return item;
+  });
+  res.json(teaser);
+}));
+
+app.delete("/api/teasers/:id", asyncRoute(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ teasers: (db.teasers || []).filter(t => t.id !== id) });
+  });
+  res.json({ success: true });
 }));
 
 

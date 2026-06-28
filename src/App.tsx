@@ -6,6 +6,7 @@ import GiftsRealView from "./components/GiftsRealView";
 import VisualLibraryView from "./components/VisualLibraryView";
 import ConversationHubView from "./components/ConversationHubView";
 import StoryEngineView from "./components/StoryEngineView";
+import TeasersView from "./components/TeasersView";
 import { VISUAL_LIBRARY, CONVERSATION_PROMPTS, STORY_STEPS } from "./data/fantasyContent";
 import WickedChamber from "./components/WickedChamber";
 import PrivateGallery from "./components/PrivateGallery";
@@ -19,11 +20,11 @@ import { SanctuaryTheme } from "./components/effects/EmberFieldBackground";
 const EmberFieldBackground = React.lazy(() => import("./components/effects/EmberFieldBackground"));
 import { useAuth } from "./hooks/useAuth";
 import { apiFetch } from "./lib/apiFetch";
-import { Gift, Flame, Shield, Calendar, Settings, Sparkles, Heart, Bell, Tag, Utensils, Lock, Eye, EyeOff, KeyRound, LogOut, PackageCheck } from "lucide-react";
+import { Gift, Flame, Shield, Calendar, Settings, Sparkles, Heart, Bell, Tag, Utensils, Lock, Eye, EyeOff, KeyRound, LogOut, PackageCheck, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"gifts" | "realgifts" | "purchases" | "wicked" | "gallery" | "period" | "dates" | "admin" | "kitchen" | "library" | "conversation" | "story">("gifts");
+  const [activeTab, setActiveTab] = useState<"gifts" | "realgifts" | "purchases" | "wicked" | "gallery" | "period" | "dates" | "admin" | "kitchen" | "library" | "conversation" | "story" | "teasers">("gifts");
   const [isLoading, setIsLoading] = useState(true);
   const [db, setDb] = useState<SanctuaryDB | null>(null);
 
@@ -421,18 +422,40 @@ export default function App() {
   };
 
   // Task 1: Add Important Date reminder action
-  const handleAddDate = async (title: string, date: string, category: "Anniversary" | "Birthday" | "Special Date" | "Other", reminderDaysAhead: number, description?: string) => {
+  const handleAddDate = async (title: string, date: string, category: "Anniversary" | "Birthday" | "Special Date" | "Other", reminderDaysAhead: number, description?: string, remindWho?: "Him" | "Her" | "Both") => {
     try {
       const response = await apiFetch("/api/dates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, date, category, reminderDaysAhead, description })
+        body: JSON.stringify({ title, date, category, reminderDaysAhead, description, remindWho })
       });
       if (response.ok) {
         await fetchDatabase();
       }
     } catch (err) {
       console.error("Failed to add romantic reminder date alert:", err);
+    }
+  };
+
+  const handleAddTeaser = async (title: string, targetDate: string, createdBy: "Him" | "Her", notifyWho: "Him" | "Her" | "Both", hints: { daysBefore: number; message: string }[]) => {
+    try {
+      const response = await apiFetch("/api/teasers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, targetDate, createdBy, notifyWho, hints })
+      });
+      if (response.ok) await fetchDatabase();
+    } catch (err) {
+      console.error("Failed to add teaser:", err);
+    }
+  };
+
+  const handleDeleteTeaser = async (id: string) => {
+    try {
+      const response = await apiFetch(`/api/teasers/${id}`, { method: "DELETE" });
+      if (response.ok) await fetchDatabase();
+    } catch (err) {
+      console.error("Failed to delete teaser:", err);
     }
   };
 
@@ -715,7 +738,7 @@ export default function App() {
 
         {/* Central bento navigation layout switch */}
         <nav className="max-w-4xl mx-auto" id="sanctuary-nav">
-          <div className="grid grid-cols-4 md:grid-cols-12 gap-1 bg-white/[0.02] p-2 rounded-2xl border border-white/10 shadow-2xl overflow-hidden backdrop-blur-lg">
+          <div className="grid grid-cols-4 md:grid-cols-13 gap-1 bg-white/[0.02] p-2 rounded-2xl border border-white/10 shadow-2xl overflow-hidden backdrop-blur-lg">
             
             {/* Button 1: Vouchers */}
             <button
@@ -915,6 +938,26 @@ export default function App() {
               )}
               <Sparkles className="w-4 h-4 text-red-500/80" />
               <span className="text-[9px] tracking-wide uppercase">Story</span>
+            </button>
+
+            {/* Button 6e: Teasers */}
+            <button
+              onClick={() => setActiveTab("teasers")}
+              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
+                activeTab === "teasers"
+                  ? "border-red-800 text-white font-bold glow-red"
+                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              {activeTab === "teasers" && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-red-950/45 -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
+              <Clock className="w-4 h-4 text-red-500/80" />
+              <span className="text-[9px] tracking-wide uppercase">Teasers</span>
             </button>
 
             {/* Button 6: Sacred Date Reminders */}
@@ -1199,6 +1242,22 @@ export default function App() {
                   progress={db.storyProgress || { currentStepId: "root", history: [], updatedAt: "" }}
                   onAdvance={handleAdvanceStory}
                   onReset={handleResetStory}
+                />
+              </motion.div>
+            )}
+
+            {activeTab === "teasers" && (
+              <motion.div
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                key="teasersView"
+              >
+                <TeasersView
+                  teasers={db.teasers || []}
+                  onAddTeaser={handleAddTeaser}
+                  onDeleteTeaser={handleDeleteTeaser}
                 />
               </motion.div>
             )}
