@@ -1563,6 +1563,22 @@ app.post("/api/features/vault/secret", asyncRoute(async (req: Request, res: Resp
   });
   res.json({ success: true });
 }));
+
+app.post("/api/features/touchmap", asyncRoute(async (req: Request, res: Response) => {
+  const { spot } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    const spots = db.touchMapSpots || [];
+    setDb({ touchMapSpots: [...spots, spot] });
+  });
+  res.json({ success: true });
+}));
+
+app.post("/api/features/touchmap/clear", asyncRoute(async (req: Request, res: Response) => {
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ touchMapSpots: [] });
+  });
+  res.json({ success: true });
+}));
 // Vite Dev Server / Production routing
 async function initServer() {
   if (process.env.NODE_ENV !== "production") {

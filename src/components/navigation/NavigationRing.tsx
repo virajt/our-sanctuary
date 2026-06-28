@@ -22,8 +22,10 @@ const RING_ITEMS: RingItem[] = [
 
 export default function NavigationRing({ activePath, navigate }: { activePath: string, navigate: (path: NavPath) => void }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [rotation, setRotation] = useState(0);
-  const controls = useAnimation();
+  
+  // Use a motion value for perfectly synchronized spring animations
+  const rotation = useMotionValue(0);
+  const smoothRotation = useSpring(rotation, { stiffness: 100, damping: 20 });
   
   const radius = 250;
   const itemCount = RING_ITEMS.length;
@@ -33,26 +35,23 @@ export default function NavigationRing({ activePath, navigate }: { activePath: s
     const swipeVelocity = info.velocity.x;
     const swipeThreshold = 50;
     
+    const currentRot = rotation.get();
+    let nextRot = currentRot;
+
     if (swipeVelocity > swipeThreshold) {
-      setRotation(prev => prev - angleStep);
+      nextRot = currentRot - angleStep;
     } else if (swipeVelocity < -swipeThreshold) {
-      setRotation(prev => prev + angleStep);
+      nextRot = currentRot + angleStep;
     } else {
       // Snap to nearest
-      const currentRot = rotation;
       const remainder = currentRot % angleStep;
-      if (remainder > angleStep / 2) setRotation(currentRot + (angleStep - remainder));
-      else if (remainder < -angleStep / 2) setRotation(currentRot - (angleStep + remainder));
-      else setRotation(currentRot - remainder);
+      if (remainder > angleStep / 2) nextRot = currentRot + (angleStep - remainder);
+      else if (remainder < -angleStep / 2) nextRot = currentRot - (angleStep + remainder);
+      else nextRot = currentRot - remainder;
     }
+    
+    rotation.set(nextRot);
   };
-
-  useEffect(() => {
-    controls.start({
-      rotateY: rotation,
-      transition: { type: "spring", stiffness: 100, damping: 20 }
-    });
-  }, [rotation, controls]);
 
   return (
     <>
@@ -92,9 +91,11 @@ export default function NavigationRing({ activePath, navigate }: { activePath: s
               style={{ transformStyle: "preserve-3d" }}
             >
               <motion.div
-                animate={controls}
+                style={{ 
+                  rotateY: smoothRotation,
+                  transformStyle: "preserve-3d" 
+                }}
                 className="relative w-64 h-64 flex items-center justify-center"
-                style={{ transformStyle: "preserve-3d" }}
               >
                 {RING_ITEMS.map((item, index) => {
                   const angle = index * angleStep;
@@ -109,7 +110,7 @@ export default function NavigationRing({ activePath, navigate }: { activePath: s
                         transformStyle: "preserve-3d"
                       }}
                     >
-                      <button
+                      <motion.button
                         onClick={() => {
                           navigate(item.path);
                           setIsOpen(false);
@@ -120,8 +121,8 @@ export default function NavigationRing({ activePath, navigate }: { activePath: s
                             : "bg-black/50 border-white/10 hover:bg-white/5 hover:border-white/30"
                         }`}
                         style={{
-                          // Counter-rotate the card so it always faces the screen slightly
-                          transform: `rotateY(${-angle - rotation}deg)`
+                          // Synchronized counter-rotation
+                          rotateY: useTransform(smoothRotation, (r) => -angle - r)
                         }}
                       >
                         <div className={`p-4 rounded-full bg-black/40 border border-white/5 mb-3 group-hover:scale-110 transition-transform ${item.color}`}>
@@ -132,7 +133,7 @@ export default function NavigationRing({ activePath, navigate }: { activePath: s
                         {isActive && (
                           <div className="absolute inset-0 rounded-2xl border-2 border-rose-500/50 animate-pulse pointer-events-none" />
                         )}
-                      </button>
+                      </motion.button>
                     </motion.div>
                   );
                 })}

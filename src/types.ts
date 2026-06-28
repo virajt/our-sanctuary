@@ -11,6 +11,28 @@ export interface SensoryGift {
   custom?: boolean;
 }
 
+export interface TouchMapSpot {
+  id: string;
+  x: number;
+  y: number;
+  intensity: "Soft" | "Firm" | "Teasing";
+  addedBy: "Him" | "Her";
+}
+
+export interface TeaseTimer {
+  id: string;
+  unlockDate: string; // ISO string
+  message: string;
+  targetRole: "Him" | "Her";
+}
+
+export interface Whisper {
+  id: string;
+  sender: "Him" | "Her";
+  text: string;
+  timestamp: string;
+}
+
 export type CyclePhase = "Menstrual" | "Follicular" | "Ovulatory" | "Luteal";
 
 export interface PhaseProtocol {
@@ -83,27 +105,6 @@ export interface VaultPhoto {
   captionGeneratedByAI: boolean;
 }
 
-
-
-export interface PhotoCameraPrompt {
-  id: string;
-  theme: string;
-  setup: string;
-  angle: string;
-  target: "Command Him" | "Command Her" | "Together";
-  aestheticTip: string;
-  description: string;
-}
-
-export interface VaultPhoto {
-  id: string;
-  promptText: string;
-  imageUrl: string; // Base64 data or standard fallback
-  description: string; // Gemini-written / generated caption
-  target: "Command Him" | "Command Her" | "Together";
-  timestamp: string;
-  captionGeneratedByAI: boolean;
-}
 
 export interface AdminSettings {
   vibeIntensity: "Soft" | "Medium" | "High";
@@ -327,7 +328,8 @@ export interface SanctuaryDB {
   // 10 Intimate Features State
   wifeTemperature?: "Warm" | "Hot" | "Melting";
   touchMapSpots?: TouchMapSpot[];
-  whispers?: WhisperMessage[];
+  teaseTimers?: TeaseTimer[];
+  whispers?: Whisper[];
   scavengerClues?: ScavengerClue[];
   afterglowLogs?: AfterglowLogEntry[];
   desireVaultUnlocked?: boolean; // True if both turned their keys

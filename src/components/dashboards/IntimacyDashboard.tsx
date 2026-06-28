@@ -7,6 +7,7 @@ import { FantasyApp } from "../../fantasy/FantasyApp";
 import DesireVault from "./features/DesireVault";
 import SensoryRoulette from "./features/SensoryRoulette";
 import TemperatureSync from "./features/TemperatureSync";
+import TouchMap from "./features/TouchMap";
 import { SanctuaryDB } from "../../types";
 
 export default function IntimacyDashboard({
@@ -20,7 +21,7 @@ export default function IntimacyDashboard({
   isLoading: boolean;
   navigate: (path: string) => void;
 }) {
-  const [activeSubTab, setActiveSubTab] = useState<"wicked" | "fantasy" | "vault" | "roulette" | "temperature">("wicked");
+  const [activeSubTab, setActiveSubTab] = useState<"wicked" | "fantasy" | "vault" | "roulette" | "temperature" | "touchmap">("wicked");
 
   const subTabs = [
     { id: "wicked", label: "Wicked", icon: <Flame className="w-4 h-4" /> },
@@ -28,6 +29,7 @@ export default function IntimacyDashboard({
     { id: "vault", label: "Desire Vault" },
     { id: "roulette", label: "Roulette" },
     { id: "temperature", label: "Temperature" },
+    { id: "touchmap", label: "Touch Map" },
   ] as const;
 
   return (
@@ -131,6 +133,18 @@ export default function IntimacyDashboard({
               transition={{ duration: 0.3 }}
             >
               <TemperatureSync db={db} fetchDb={() => window.dispatchEvent(new Event("sanctuary:fetchDb"))} />
+            </motion.div>
+          )}
+
+          {activeSubTab === "touchmap" && (
+            <motion.div
+              key="touchmap"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <TouchMap db={db} fetchDb={() => window.dispatchEvent(new Event("sanctuary:fetchDb"))} />
             </motion.div>
           )}
         </AnimatePresence>
