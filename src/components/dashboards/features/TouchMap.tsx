@@ -14,8 +14,7 @@ export default function TouchMap({ db, fetchDb }: { db: SanctuaryDB; fetchDb: ()
   const spots = db.touchMapSpots || [];
 
   const handleMapClick = async (e: React.MouseEvent<HTMLDivElement>) => {
-    if (role !== "Him") return; // Only he can add intentions
-
+    // Both of you can now add intentions!
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -56,33 +55,29 @@ export default function TouchMap({ db, fetchDb }: { db: SanctuaryDB; fetchDb: ()
       <div className="text-center space-y-3">
         <h3 className="font-serif text-2xl text-rose-400">The Touch Map</h3>
         <p className="text-sm text-neutral-400">
-          {role === "Him" 
-            ? "Trace your intentions. Tap to mark exactly where you want to touch her tonight."
-            : "His intentions for tonight. Watch where he plans to explore."}
+          Trace your intentions for each other.
         </p>
       </div>
 
-      {role === "Him" && (
-        <div className="flex justify-center gap-2 mb-4">
-          {(["Soft", "Firm", "Teasing"] as const).map(intensity => (
-            <button
-              key={intensity}
-              onClick={() => setSelectedIntensity(intensity)}
-              className={`px-4 py-1.5 rounded-full text-xs font-mono tracking-widest border transition-all ${
-                selectedIntensity === intensity
-                  ? "bg-rose-500/20 border-rose-500 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.3)]"
-                  : "bg-black/40 border-white/10 text-white/50"
-              }`}
-            >
-              {intensity}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex justify-center gap-2 mb-4">
+        {(["Soft", "Firm", "Teasing"] as const).map(intensity => (
+          <button
+            key={intensity}
+            onClick={() => setSelectedIntensity(intensity)}
+            className={`px-4 py-1.5 rounded-full text-xs font-mono tracking-widest border transition-all ${
+              selectedIntensity === intensity
+                ? "bg-rose-500/20 border-rose-500 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.3)]"
+                : "bg-black/40 border-white/10 text-white/50"
+            }`}
+          >
+            {intensity}
+          </button>
+        ))}
+      </div>
 
       {/* Interactive Silhouette Area */}
       <div 
-        className={`relative w-full aspect-[1/2] bg-black/60 rounded-3xl border border-white/10 overflow-hidden shadow-2xl ${role === "Him" ? "cursor-crosshair" : ""}`}
+        className="relative w-full aspect-[1/2] bg-black/60 rounded-3xl border border-white/10 overflow-hidden shadow-2xl cursor-crosshair"
         onClick={handleMapClick}
       >
         {/* Abstract silhouette placeholder (In production, replace with actual SVG/Image) */}
@@ -112,7 +107,7 @@ export default function TouchMap({ db, fetchDb }: { db: SanctuaryDB; fetchDb: ()
         </AnimatePresence>
       </div>
 
-      {role === "Him" && spots.length > 0 && (
+      {spots.length > 0 && (
         <div className="flex justify-center mt-6">
           <button
             onClick={handleClear}

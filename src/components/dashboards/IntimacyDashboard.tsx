@@ -8,6 +8,8 @@ import DesireVault from "./features/DesireVault";
 import SensoryRoulette from "./features/SensoryRoulette";
 import TemperatureSync from "./features/TemperatureSync";
 import TouchMap from "./features/TouchMap";
+import TeaseTimer from "./features/TeaseTimer";
+import Whispers from "./features/Whispers";
 import { SanctuaryDB } from "../../types";
 
 export default function IntimacyDashboard({
@@ -21,7 +23,7 @@ export default function IntimacyDashboard({
   isLoading: boolean;
   navigate: (path: string) => void;
 }) {
-  const [activeSubTab, setActiveSubTab] = useState<"wicked" | "fantasy" | "vault" | "roulette" | "temperature" | "touchmap">("wicked");
+  const [activeSubTab, setActiveSubTab] = useState<"wicked" | "fantasy" | "vault" | "roulette" | "temperature" | "touchmap" | "teasetimer" | "whispers">("wicked");
 
   const subTabs = [
     { id: "wicked", label: "Wicked", icon: <Flame className="w-4 h-4" /> },
@@ -30,6 +32,8 @@ export default function IntimacyDashboard({
     { id: "roulette", label: "Roulette" },
     { id: "temperature", label: "Temperature" },
     { id: "touchmap", label: "Touch Map" },
+    { id: "teasetimer", label: "Tease Timer" },
+    { id: "whispers", label: "Whispers" },
   ] as const;
 
   return (
@@ -145,6 +149,30 @@ export default function IntimacyDashboard({
               transition={{ duration: 0.3 }}
             >
               <TouchMap db={db} fetchDb={() => window.dispatchEvent(new Event("sanctuary:fetchDb"))} />
+            </motion.div>
+          )}
+
+          {activeSubTab === "teasetimer" && (
+            <motion.div
+              key="teasetimer"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <TeaseTimer db={db} fetchDb={() => window.dispatchEvent(new Event("sanctuary:fetchDb"))} />
+            </motion.div>
+          )}
+
+          {activeSubTab === "whispers" && (
+            <motion.div
+              key="whispers"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Whispers db={db} fetchDb={() => window.dispatchEvent(new Event("sanctuary:fetchDb"))} />
             </motion.div>
           )}
         </AnimatePresence>

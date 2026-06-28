@@ -1579,6 +1579,33 @@ app.post("/api/features/touchmap/clear", asyncRoute(async (req: Request, res: Re
   });
   res.json({ success: true });
 }));
+
+app.post("/api/features/teasetimer", asyncRoute(async (req: Request, res: Response) => {
+  const { timer } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    const timers = db.teaseTimers || [];
+    setDb({ teaseTimers: [...timers.filter(t => t.targetRole !== timer.targetRole), timer] });
+  });
+  res.json({ success: true });
+}));
+
+app.post("/api/features/whispers", asyncRoute(async (req: Request, res: Response) => {
+  const { whisper } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    const whispers = db.whispers || [];
+    setDb({ whispers: [...whispers, whisper] });
+  });
+  res.json({ success: true });
+}));
+
+app.post("/api/features/whispers/delete", asyncRoute(async (req: Request, res: Response) => {
+  const { id } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    const whispers = db.whispers || [];
+    setDb({ whispers: whispers.filter(w => w.id !== id) });
+  });
+  res.json({ success: true });
+}));
 // Vite Dev Server / Production routing
 async function initServer() {
   if (process.env.NODE_ENV !== "production") {
