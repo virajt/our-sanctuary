@@ -1,20 +1,32 @@
 import React, { useState } from "react";
 import { HeartPulse } from "lucide-react";
 import { apiFetch } from "../../lib/apiFetch";
+import { useAuth } from "../../hooks/useAuth";
 
 export default function HeartbeatSync() {
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
+  const { user } = useAuth();
+  
+  // If role isn't Him or Her, fallback to generic
+  const isHusband = user?.role === "Him";
+  const isWife = user?.role === "Her";
 
   const handlePulse = async () => {
     setStatus("sending");
+    
+    // Dynamic routing and messaging
+    const who = isHusband ? "Her" : isWife ? "Him" : "Both";
+    const senderTitle = isHusband ? "Your husband" : isWife ? "Your wife" : "Your partner";
+    
     try {
       await apiFetch("/api/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           feature: "heartbeat",
-          subject: "Pulse Received",
-          message: "Your partner just sent you a heartbeat pulse. They are thinking of you right now."
+          subject: `${user?.name || senderTitle} sent you a Heartbeat`,
+          message: `${senderTitle} just sent you a heartbeat pulse. They are thinking of you right now.`,
+          who
         })
       });
       setStatus("sent");

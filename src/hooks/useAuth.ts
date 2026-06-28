@@ -4,6 +4,7 @@ export interface AuthUser {
   email: string;
   name: string;
   picture?: string;
+  role?: "Him" | "Her";
 }
 
 interface UseAuthResult {

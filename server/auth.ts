@@ -10,6 +10,9 @@ const ALLOWED_EMAILS = (process.env.ALLOWED_EMAILS || "")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
+const HUSBAND_EMAIL = (process.env.HUSBAND_EMAIL || "").trim().toLowerCase();
+const WIFE_EMAIL = (process.env.WIFE_EMAIL || "").trim().toLowerCase();
+
 const SESSION_COOKIE_NAME = "sanctuary_session";
 const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -37,6 +40,7 @@ export interface SessionPayload {
   email: string;
   name: string;
   picture?: string;
+  role?: "Him" | "Her";
 }
 
 /**
@@ -69,10 +73,15 @@ export async function verifyGoogleIdToken(idToken: string): Promise<SessionPaylo
     throw new Error("This Google account is not authorized for this sanctuary.");
   }
 
+  let role: "Him" | "Her" | undefined = undefined;
+  if (email === HUSBAND_EMAIL) role = "Him";
+  else if (email === WIFE_EMAIL) role = "Her";
+
   return {
     email,
     name: payload.name || email,
     picture: payload.picture,
+    role
   };
 }
 
