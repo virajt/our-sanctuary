@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Map, CheckCircle2, Lock, Plus, Trash2, ArrowRight } from "lucide-react";
+import { Map, CircleCheck, Lock, Plus, Trash, ArrowRight } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { SanctuaryDB, ScavengerClue } from "../../../types";
 import { apiFetch } from "../../../lib/apiFetch";
@@ -106,7 +106,7 @@ export default function ScavengerHunt({ db, fetchDb }: { db: SanctuaryDB; fetchD
           animate={{ scale: 1, opacity: 1 }}
           className="p-8 bg-rose-950/40 rounded-3xl border border-rose-500/50 text-center shadow-[0_0_40px_rgba(225,29,72,0.2)]"
         >
-          <CheckCircle2 className="w-12 h-12 text-rose-400 mx-auto mb-4" />
+          <CircleCheck className="w-12 h-12 text-rose-400 mx-auto mb-4" />
           <h4 className="text-2xl text-rose-300 font-serif mb-2">Hunt Completed</h4>
           <p className="text-rose-200/70 text-sm">
             {role === "Him" 
@@ -131,7 +131,7 @@ export default function ScavengerHunt({ db, fetchDb }: { db: SanctuaryDB; fetchD
                     <div className="text-xs text-neutral-500 font-mono mt-2">Ans: {c.answer}</div>
                   </div>
                   <button onClick={() => handleRemoveClue(c.id)} className="p-2 hover:text-rose-500 text-neutral-600 transition">
-                    <Trash2 className="w-4 h-4" />
+                    <Trash className="w-4 h-4" />
                   </button>
                 </div>
               ))}

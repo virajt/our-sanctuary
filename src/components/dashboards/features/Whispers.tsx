@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Send, Eye, Trash2 } from "lucide-react";
+import { Send, Eye, Trash } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { SanctuaryDB, Whisper } from "../../../types";
 import { apiFetch } from "../../../lib/apiFetch";
@@ -140,7 +140,7 @@ export default function Whispers({ db, fetchDb }: { db: SanctuaryDB; fetchDb: ()
             <div key={w.id} className="p-4 bg-black/30 rounded-2xl border border-white/5 flex items-center justify-between">
               <span className="text-neutral-500 italic text-sm truncate pr-4">"{w.text}"</span>
               <button onClick={() => handleDestroy(w.id)} className="text-neutral-600 hover:text-rose-500 p-2">
-                <Trash2 className="w-4 h-4" />
+                <Trash className="w-4 h-4" />
               </button>
             </div>
           ))}
