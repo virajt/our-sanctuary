@@ -9,7 +9,7 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 
 export type EmailRecipient = "Him" | "Her" | "Both";
 
-export async function sendReminderEmail(who: EmailRecipient, subject: string, body: string, isHtml: boolean = false, fromName: string = "Our Sanctuary"): Promise<void> {
+export async function sendReminderEmail(who: EmailRecipient, subject: string, body: string, isHtml: boolean = false, fromName: string = "Our Sanctuary"): Promise<{success: boolean, error?: string}> {
   const db = await readDB();
   const config = db.adminSettings.notificationConfig;
   
@@ -23,11 +23,11 @@ export async function sendReminderEmail(who: EmailRecipient, subject: string, bo
 
   if (addrs.length === 0) {
     console.warn(`[email] No configured recipients for "${who}" - set emails in Admin Panel. Skipping: ${subject}`);
-    return;
+    return { success: false, error: "No configured recipients for this role." };
   }
   if (!RESEND_API_KEY) {
     console.warn(`[email] RESEND_API_KEY is not set - skipping email: ${subject}`);
-    return;
+    return { success: false, error: "RESEND_API_KEY is not set in environment." };
   }
 
   try {
@@ -47,8 +47,11 @@ export async function sendReminderEmail(who: EmailRecipient, subject: string, bo
     if (!res.ok) {
       const errText = await res.text();
       console.error(`[email] Resend API error (${res.status}) sending "${subject}":`, errText);
+      return { success: false, error: `Resend Error (${res.status}): ${errText}` };
     }
+    return { success: true };
   } catch (err) {
     console.error(`[email] Failed to send "${subject}":`, err);
+    return { success: false, error: String(err) };
   }
 }

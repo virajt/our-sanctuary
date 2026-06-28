@@ -264,6 +264,56 @@ app.post("/internal/run-reminders", asyncRoute(async (req: Request, res: Respons
 // --- Everything below this line requires a valid, whitelisted session ---
 app.use("/api", requireAuth);
 
+app.post("/api/admin/test-email", asyncRoute(async (req: Request, res: Response) => {
+  const { role } = req.body; // "Him" or "Her"
+  if (role !== "Him" && role !== "Her") {
+    res.status(400).json({ error: "Invalid role for test email." });
+    return;
+  }
+  
+  let fromName = "Our Sanctuary";
+  let greeting = "My love,";
+  let signoff = "Forever yours,";
+  
+  if (role === "Her") {
+    fromName = "Your Loving Husband";
+    greeting = "My beautiful wife,";
+    signoff = "With all my devotion,<br>Your Husband";
+  } else if (role === "Him") {
+    fromName = "Your Devoted Wife";
+    greeting = "My handsome husband,";
+    signoff = "Waiting for you,<br>Your Wife";
+  }
+
+  const htmlBody = `
+  <div style="background-color: #050505; color: #f5f5f7; font-family: sans-serif; padding: 40px 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #111114; border: 1px solid #33001b; border-radius: 20px; padding: 40px; box-shadow: 0 10px 30px rgba(220, 20, 60, 0.1);">
+      <div style="font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: #ff8ba7; margin-bottom: 20px; text-align: center;">
+        Sanctuary Test Communication
+      </div>
+      <h2 style="color: #ffdde6; font-size: 24px; font-weight: 300; margin-bottom: 30px; text-align: center;">
+        ${greeting}
+      </h2>
+      <p style="font-size: 16px; line-height: 1.8; color: #c9c4c6; margin-bottom: 20px;">
+        This is a test message to ensure our private sanctuary's communication channel is perfectly attuned.
+      </p>
+      <div style="text-align: center; border-top: 1px solid #2a161d; padding-top: 30px;">
+        <p style="font-size: 14px; color: #ff8ba7; margin: 0;">
+          ${signoff}
+        </p>
+      </div>
+    </div>
+  </div>
+  `;
+
+  const result = await sendReminderEmail(role, "Sanctuary Connection Test", htmlBody, true, fromName);
+  if (!result.success) {
+    res.status(500).json({ error: result.error });
+    return;
+  }
+  res.json({ success: true });
+}));
+
 // Wraps an async route handler so a rejected promise (e.g. Firestore being
 // briefly unreachable, a misconfigured credential, a transient network
 // blip) becomes a clean JSON 500 response instead of an unhandled

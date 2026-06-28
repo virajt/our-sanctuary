@@ -63,6 +63,28 @@ export default function AdminPanel({
   const [isImporting, setIsImporting] = useState(false);
   const [importStatus, setImportStatus] = useState({ success: false, msg: "" });
 
+  // Test Email State
+  const [testEmailStatus, setTestEmailStatus] = useState<{loading: boolean, error: string | null, success: string | null}>({ loading: false, error: null, success: null });
+
+  const handleTestEmail = async (role: "Him" | "Her") => {
+    setTestEmailStatus({ loading: true, error: null, success: null });
+    try {
+      const res = await fetch("/api/admin/test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTestEmailStatus({ loading: false, error: data.error || "Failed to send test email", success: null });
+      } else {
+        setTestEmailStatus({ loading: false, error: null, success: `Test email successfully sent to ${role}` });
+      }
+    } catch (err) {
+      setTestEmailStatus({ loading: false, error: String(err), success: null });
+    }
+  };
+
   const handleLoadTemplate = () => {
     if (importFormat === "json") {
       const sample = [
@@ -480,6 +502,52 @@ export default function AdminPanel({
                   placeholder="e.g. her@example.com"
                   className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-800"
                 />
+              </div>
+            </div>
+            
+            {/* Test Email Section */}
+            <div className="bg-luxury-900/80 border border-luxury-800 rounded-3xl p-8 space-y-6">
+              <div className="border-b border-luxury-800 pb-3">
+                <h3 className="font-serif text-xl font-medium text-white/90 flex items-center gap-2">
+                  <Eye className="w-5 h-5 text-red-500" />
+                  Test Email Deliverability
+                </h3>
+                <p className="text-xs text-neutral-500">Bypass the schedule and instantly trigger a romantic HTML test email to verify your Resend configuration.</p>
+              </div>
+
+              {testEmailStatus.error && (
+                <div className="p-4 bg-red-950/50 border border-red-900/50 rounded-xl">
+                  <p className="text-xs text-red-400 font-medium break-words">
+                    <strong className="text-red-300 block mb-1">Email Blocked by Resend:</strong>
+                    {testEmailStatus.error}
+                  </p>
+                  <p className="text-[10px] text-red-500/70 mt-2">
+                    Note: The default onboarding@resend.dev domain can ONLY send to the email address registered to your Resend account. To send to other emails, you must verify a custom domain in Resend.
+                  </p>
+                </div>
+              )}
+
+              {testEmailStatus.success && (
+                <div className="p-4 bg-green-950/30 border border-green-900/30 rounded-xl">
+                  <p className="text-xs text-green-400">{testEmailStatus.success}</p>
+                </div>
+              )}
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => handleTestEmail("Him")}
+                  disabled={testEmailStatus.loading || !localSettings.notificationConfig?.hisEmail}
+                  className="flex-1 bg-luxury-950 hover:bg-luxury-800 border border-luxury-800 text-white px-4 py-3 rounded-xl text-xs font-medium uppercase tracking-wider transition-all disabled:opacity-50"
+                >
+                  {testEmailStatus.loading ? "Sending..." : "Test 'Him' Email"}
+                </button>
+                <button
+                  onClick={() => handleTestEmail("Her")}
+                  disabled={testEmailStatus.loading || !localSettings.notificationConfig?.herEmail}
+                  className="flex-1 bg-luxury-950 hover:bg-luxury-800 border border-luxury-800 text-white px-4 py-3 rounded-xl text-xs font-medium uppercase tracking-wider transition-all disabled:opacity-50"
+                >
+                  {testEmailStatus.loading ? "Sending..." : "Test 'Her' Email"}
+                </button>
               </div>
             </div>
 
