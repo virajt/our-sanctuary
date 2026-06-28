@@ -667,6 +667,7 @@ export default function App() {
       }}
       style={{ perspective: "1500px" }}
     >
+      {/* 3D Environment Initialized */}
       <Suspense fallback={null}>
         <EmberFieldBackground theme={emberTheme} intensity="ambient" />
       </Suspense>
