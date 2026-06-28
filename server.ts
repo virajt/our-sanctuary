@@ -266,6 +266,83 @@ app.post("/internal/run-reminders", asyncRoute(async (req: Request, res: Respons
 // --- Everything below this line requires a valid, whitelisted session ---
 app.use("/api", requireAuth);
 
+function getActionName(urlPath: string, method: string): string | null {
+  const path = urlPath.split('?')[0];
+  if (path === "/api/auth/google" || path === "/api/auth/logout" || path === "/api/auth/me" || path === "/api/notify" || path === "/api/admin/send-guides" || path === "/api/admin/test-email" || path === "/api/hub/memoryPins") return null;
+  
+  if (method === "POST" && path.startsWith("/api/gifts/")) {
+    if (path.endsWith("/claim")) return "A Sensory Voucher was claimed.";
+    if (path.endsWith("/redeem")) return "A Sensory Voucher was redeemed.";
+    if (path.endsWith("/delete")) return "A Custom Sensory Gift was deleted.";
+  }
+  if (method === "POST" && path === "/api/gifts") return "A new Sensory Gift was added to the vault.";
+  if (method === "POST" && path === "/api/real-gifts") return "A Physical Gift was added.";
+  if (method === "POST" && path.startsWith("/api/real-gifts/")) {
+    if (path.endsWith("/give")) return "A Physical Gift was given.";
+    if (path.endsWith("/receive")) return "A Physical Gift was marked as received.";
+    if (path.endsWith("/delete")) return "A Physical Gift was removed.";
+  }
+  if (method === "POST" && path === "/api/gift-purchases") return "A Gift Purchase was logged.";
+  if (method === "DELETE" && path.startsWith("/api/gift-purchases/")) return "A Gift Purchase log was deleted.";
+  if (method === "POST" && path === "/api/wicked/generate") return "A Wicked Command was just generated in the Chamber.";
+  if (method === "POST" && path === "/api/gallery/upload") return "A new private photograph was sealed in the Gallery.";
+  if (method === "POST" && path.startsWith("/api/gallery/delete/")) return "A photograph was deleted from the Gallery.";
+  if (method === "POST" && path === "/api/period/config") return "The Vesta Cycle tracker configuration was updated.";
+  if (method === "POST" && path === "/api/period/log") return "A daily Vesta Cycle log was recorded.";
+  if (method === "POST" && path === "/api/period/import") return "Historical Vesta Cycle data was bulk imported.";
+  if (method === "POST" && path === "/api/admin/settings") return "Global Sanctuary parameters were modified in the Admin Panel.";
+  if (method === "POST" && path === "/api/dates") return "A new Important Date reminder was scheduled.";
+  if (method === "DELETE" && path.startsWith("/api/dates/")) return "An Important Date reminder was removed.";
+  if (method === "POST" && path === "/api/teasers") return "A new Teaser Sequence was initiated.";
+  if (method === "DELETE" && path.startsWith("/api/teasers/")) return "A Teaser Sequence was cancelled.";
+  if (method === "POST" && path === "/api/kitchen/save") return "A Culinary Recipe was added.";
+  if (method === "DELETE" && path.startsWith("/api/kitchen/")) return "A Culinary Recipe was deleted.";
+  if (method === "POST" && path.startsWith("/api/kitchen/notes/")) return "Culinary Recipe notes were updated.";
+  if (method === "POST" && path.startsWith("/api/kitchen/rating/")) return "Culinary Recipe intimacy rating was updated.";
+  
+  return `A modification occurred (${method} ${path})`;
+}
+
+app.use("/api", (req, res, next) => {
+  if (req.method === "POST" || req.method === "PUT" || req.method === "DELETE" || req.method === "PATCH") {
+    const actionDesc = getActionName(req.originalUrl, req.method);
+    if (actionDesc) {
+      res.on('finish', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          const role = (req as any).user?.role;
+          const fromEmail = role === "Him" ? "husband@virajtrivedi.com" : (role === "Her" ? "wife@virajtrivedi.com" : undefined);
+          const fromName = role === "Him" ? "The Architect" : (role === "Her" ? "The Muse" : "Sanctuary System");
+          
+          let notifyTarget: "Him" | "Her" | "Both" = "Both";
+          if (req.query.notify === "Self") {
+            notifyTarget = role === "Him" ? "Him" : "Her";
+          }
+          
+          const htmlBody = `
+          <div style="background-color: #050505; color: #f5f5f7; font-family: sans-serif; padding: 40px 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #111114; border: 1px solid #33001b; border-radius: 20px; padding: 40px; box-shadow: 0 10px 30px rgba(220, 20, 60, 0.1);">
+              <h2 style="color: #ffdde6; font-size: 20px; font-weight: 300; margin-bottom: 20px; text-align: center;">
+                Sanctuary Audit Log
+              </h2>
+              <div style="background-color: #1a0810; border-left: 2px solid #ff4d6d; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+                <p style="font-size: 15px; color: #c9c4c6; margin: 0; line-height: 1.6;">
+                  <strong>Action:</strong> ${actionDesc}
+                </p>
+                <p style="font-size: 15px; color: #c9c4c6; margin: 10px 0 0 0; line-height: 1.6;">
+                  <strong>Performed by:</strong> ${fromName}
+                </p>
+              </div>
+            </div>
+          </div>
+          `;
+          sendReminderEmail(notifyTarget, "Sanctuary Update: Action Performed", htmlBody, true, fromName, fromEmail).catch(err => console.error("[audit] Failed to send audit email", err));
+        }
+      });
+    }
+  }
+  next();
+});
+
 app.post("/api/admin/test-email", asyncRoute(async (req: Request, res: Response) => {
   const { role } = req.body; // "Him" or "Her"
   if (role !== "Him" && role !== "Her") {

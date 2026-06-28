@@ -8,7 +8,7 @@ import { readDB } from "./firestoreDb";
 
 export type EmailRecipient = "Him" | "Her" | "Both";
 
-export async function sendReminderEmail(who: EmailRecipient, subject: string, body: string, isHtml: boolean = false, fromName: string = "Our Sanctuary"): Promise<{success: boolean, error?: string}> {
+export async function sendReminderEmail(who: EmailRecipient, subject: string, body: string, isHtml: boolean = false, fromName: string = "Our Sanctuary", fromEmail?: string): Promise<{success: boolean, error?: string}> {
   const db = await readDB();
   const config = db.adminSettings.notificationConfig;
   
@@ -38,7 +38,7 @@ export async function sendReminderEmail(who: EmailRecipient, subject: string, bo
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${fromName} <Sanctuary@virajtrivedi.com>`,
+        from: `${fromName} <${fromEmail || "Sanctuary@virajtrivedi.com"}>`,
         to: addrs,
         subject,
         ...(isHtml ? { html: body } : { text: body }),
