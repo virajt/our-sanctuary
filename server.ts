@@ -1527,6 +1527,42 @@ app.post("/api/hub/canvas", asyncRoute(async (req: Request, res: Response) => {
   });
   res.json({ success: true });
 }));
+
+// --- 10 Intimate Features Endpoints ---
+
+app.post("/api/features/temperature", asyncRoute(async (req: Request, res: Response) => {
+  const { temperature } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ wifeTemperature: temperature });
+  });
+  res.json({ success: true });
+}));
+
+app.post("/api/features/vault/key", asyncRoute(async (req: Request, res: Response) => {
+  const { role, isLocked } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    if (role === "Him") setDb({ desireVaultHisKey: !isLocked });
+    if (role === "Her") setDb({ desireVaultHerKey: !isLocked });
+    
+    // Check if both are unlocked
+    if ((role === "Him" && !isLocked && db.desireVaultHerKey) || 
+        (role === "Her" && !isLocked && db.desireVaultHisKey)) {
+      setDb({ desireVaultUnlocked: true });
+    } else {
+      setDb({ desireVaultUnlocked: false });
+    }
+  });
+  res.json({ success: true });
+}));
+
+app.post("/api/features/vault/secret", asyncRoute(async (req: Request, res: Response) => {
+  const { role, secret } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    if (role === "Him") setDb({ desireVaultHisSecret: secret });
+    if (role === "Her") setDb({ desireVaultHerSecret: secret });
+  });
+  res.json({ success: true });
+}));
 // Vite Dev Server / Production routing
 async function initServer() {
   if (process.env.NODE_ENV !== "production") {

@@ -7,7 +7,7 @@ import LifeDashboard from "./components/dashboards/LifeDashboard";
 import MemoriesDashboard from "./components/dashboards/MemoriesDashboard";
 import IntimacyDashboard from "./components/dashboards/IntimacyDashboard";
 import TimelineDashboard from "./components/dashboards/TimelineDashboard";
-import MacDock, { NavPath } from "./components/navigation/MacDock";
+import NavigationRing from "./components/navigation/NavigationRing";
 import GoogleSignIn from "./components/GoogleSignIn";
 import ConnectionHubView from "./connection-hub/ConnectionHubView";
 import { SanctuaryTheme } from "./components/effects/EmberFieldBackground";
@@ -146,6 +146,15 @@ export default function App() {
     };
     window.addEventListener("sanctuary:apiError", handler);
     return () => window.removeEventListener("sanctuary:apiError", handler);
+  }, []);
+
+  // Listen for manual fetchDb requests
+  useEffect(() => {
+    const handler = () => {
+      fetchDatabase();
+    };
+    window.addEventListener("sanctuary:fetchDb", handler);
+    return () => window.removeEventListener("sanctuary:fetchDb", handler);
   }, []);
 
   // API Call Helpers to sync with server Node container
@@ -618,18 +627,23 @@ export default function App() {
     );
   }
 
-  const activeTheme = db?.adminSettings?.theme || "Passionate Red";
+  // Determine base theme, overridden by Temperature Sync if set
+  let activeTheme = db?.adminSettings?.theme || "Passionate Red";
+  if (db?.wifeTemperature === "Warm") activeTheme = "Golden Hour";
+  else if (db?.wifeTemperature === "Hot") activeTheme = "Passionate Red";
+  else if (db?.wifeTemperature === "Melting") activeTheme = "Midnight Blue"; // Deepest intensity maps to midnight/glow
+
   const themeClass = activeTheme === "Midnight Blue" 
     ? "theme-midnight-blue" 
     : activeTheme === "Golden Hour" 
     ? "theme-golden-hour" 
     : "theme-passionate-red";
+    
   const emberTheme: SanctuaryTheme = activeTheme === "Midnight Blue"
     ? "midnight-blue"
     : activeTheme === "Golden Hour"
     ? "golden-hour"
     : "passionate-red";
-
 
   return (
     <div className={`min-h-screen text-neutral-100 flex flex-col justify-between ${themeClass}`} id="sanctuary-app">
@@ -701,7 +715,7 @@ export default function App() {
           <MusicPlayer />
         </section>
 
-        <MacDock activePath={activePath} navigate={(p: NavPath) => navigate(p)} />
+        <NavigationRing activePath={activePath} navigate={navigate as any} />
 
         {/* Switch panel view transitions container */}
         <main className="max-w-6xl mx-auto pt-4 pb-12" id="sanctuary-panels">

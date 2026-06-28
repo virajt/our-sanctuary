@@ -4,6 +4,9 @@ import { Flame, Sparkles } from "lucide-react";
 
 import WickedChamber from "../WickedChamber";
 import { FantasyApp } from "../../fantasy/FantasyApp";
+import DesireVault from "./features/DesireVault";
+import SensoryRoulette from "./features/SensoryRoulette";
+import TemperatureSync from "./features/TemperatureSync";
 import { SanctuaryDB } from "../../types";
 
 export default function IntimacyDashboard({
@@ -17,11 +20,14 @@ export default function IntimacyDashboard({
   isLoading: boolean;
   navigate: (path: string) => void;
 }) {
-  const [activeSubTab, setActiveSubTab] = useState<"wicked" | "fantasy">("wicked");
+  const [activeSubTab, setActiveSubTab] = useState<"wicked" | "fantasy" | "vault" | "roulette" | "temperature">("wicked");
 
   const subTabs = [
-    { id: "wicked", label: "Wicked Generator", icon: <Flame className="w-4 h-4" /> },
-    { id: "fantasy", label: "The Fantasy", icon: <Sparkles className="w-4 h-4" /> },
+    { id: "wicked", label: "Wicked", icon: <Flame className="w-4 h-4" /> },
+    { id: "fantasy", label: "Fantasy", icon: <Sparkles className="w-4 h-4" /> },
+    { id: "vault", label: "Desire Vault" },
+    { id: "roulette", label: "Roulette" },
+    { id: "temperature", label: "Temperature" },
   ] as const;
 
   return (
@@ -89,6 +95,42 @@ export default function IntimacyDashboard({
               transition={{ duration: 0.3 }}
             >
               <FantasyApp onClose={() => navigate("/surprises")} />
+            </motion.div>
+          )}
+
+          {activeSubTab === "vault" && (
+            <motion.div
+              key="vault"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <DesireVault db={db} fetchDb={() => window.dispatchEvent(new Event("sanctuary:fetchDb"))} />
+            </motion.div>
+          )}
+
+          {activeSubTab === "roulette" && (
+            <motion.div
+              key="roulette"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <SensoryRoulette db={db} />
+            </motion.div>
+          )}
+
+          {activeSubTab === "temperature" && (
+            <motion.div
+              key="temperature"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <TemperatureSync db={db} fetchDb={() => window.dispatchEvent(new Event("sanctuary:fetchDb"))} />
             </motion.div>
           )}
         </AnimatePresence>

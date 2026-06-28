@@ -83,71 +83,7 @@ export interface VaultPhoto {
   captionGeneratedByAI: boolean;
 }
 
-export interface AdminSettings {
-export interface SensoryGift {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  receiver: "Him" | "Her" | "Together";
-  status: "Available" | "Claimed" | "Redeemed";
-  claimedBy?: "Him" | "Her";
-  claimedAt?: string;
-  redeemedAt?: string;
-  custom?: boolean;
-}
 
-export type CyclePhase = "Menstrual" | "Follicular" | "Ovulatory" | "Luteal";
-
-export interface PhaseProtocol {
-  phase: CyclePhase;
-  days: string;
-  description: string;
-  wifeSymptoms: string[];
-  husbandToDos: string[];
-  recommendedIntimacy: string;
-  foodsToProvide: string[];
-}
-
-export interface CycleLog {
-  id: string;
-  date: string;
-  symptoms: string[];
-  moods: string[];
-  intimacyLevel: "None" | "Light Touch" | "Sensual" | "Intense";
-  notes?: string;
-  flow?: "None" | "Spotting" | "Light" | "Medium" | "Heavy";
-  temperature?: number;
-  weight?: number;
-  waterIntake?: number;
-  sleepDuration?: number;
-  sex?: "None" | "Protected" | "Unprotected";
-}
-
-export interface PeriodConfig {
-  lastPeriodDate: string; // YYYY-MM-DD
-  cycleLength: number;    // default 28
-  periodLength: number;   // default 5
-  pregnancyMode?: boolean;
-  pregnancyStartDate?: string; // YYYY-MM-DD (Gestation LMP)
-}
-
-export interface CycleTrackerDB {
-  periodConfig: PeriodConfig;
-  cycleLogs: CycleLog[];
-}
-
-export interface WickedChallenge {
-  id: string;
-  action: string;
-  bodyPart: string;
-  intensity: "Teasing" | "Sensual" | "Intense" | "Wicked";
-  target: "Command Him" | "Command Her" | "Together";
-  howTo: string;
-  description: string;
-  timestamp: string;
-  rating?: number; // Optional couple feedback rating (1-5 hearts)
-}
 
 export interface PhotoCameraPrompt {
   id: string;
@@ -332,6 +268,40 @@ export interface DigitalCanvasStroke {
   width: number;
 }
 
+// --- 10 Intimate Features ---
+
+export interface TouchMapSpot {
+  id: string;
+  x: number;
+  y: number;
+  intensity: "Soft" | "Firm" | "Teasing";
+  notes?: string;
+  addedBy: "Him" | "Her";
+}
+
+export interface WhisperMessage {
+  id: string;
+  sender: "Him" | "Her";
+  text: string;
+  read: boolean;
+  timestamp: string;
+}
+
+export interface ScavengerClue {
+  id: string;
+  clueText: string;
+  answer: string;
+  isSolved: boolean;
+}
+
+export interface AfterglowLogEntry {
+  id: string;
+  date: string;
+  intensity: number; // 1-10
+  highlights: string[];
+  notes: string;
+}
+
 export interface SanctuaryDB {
   gifts: SensoryGift[]; // these are "Vouchers" in the UI - sensory/intimate experiences either partner can redeem anytime
   cycleLogs: CycleLog[];
@@ -353,4 +323,16 @@ export interface SanctuaryDB {
   countdowns?: CountdownEvent[];
   dailyPrompts?: DailyPrompt[];
   canvasStrokes?: DigitalCanvasStroke[];
+  
+  // 10 Intimate Features State
+  wifeTemperature?: "Warm" | "Hot" | "Melting";
+  touchMapSpots?: TouchMapSpot[];
+  whispers?: WhisperMessage[];
+  scavengerClues?: ScavengerClue[];
+  afterglowLogs?: AfterglowLogEntry[];
+  desireVaultUnlocked?: boolean; // True if both turned their keys
+  desireVaultHisKey?: boolean;
+  desireVaultHerKey?: boolean;
+  desireVaultHisSecret?: string;
+  desireVaultHerSecret?: string;
 }
