@@ -760,6 +760,7 @@ export default function App() {
                   db={db}
                   periodConfig={db.periodConfig}
                   cycleLogs={db.cycleLogs}
+                  activePhase={getWifeCurrentPhase()}
                   onUpdatePeriodConfig={handleUpdatePeriodConfig}
                   onAddPeriodLog={handleAddPeriodLog}
                   onUpdateKitchen={fetchDatabase}

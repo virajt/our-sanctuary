@@ -18,6 +18,8 @@ import {
   CycleTrackerDB
 } from "./src/types";
 import {
+  generateGeminiWicked,
+  generateGeminiPhotoPrompt,
   generateProceduralWicked,
   generateProceduralPhotoPrompt
 } from "./server/generators";
@@ -423,56 +425,16 @@ app.post("/api/real-gifts/:id/delete", asyncRoute(async (req: Request, res: Resp
 
 // 3. Wicked Chamber Random Generation (with Gemini optimization)
 app.post("/api/wicked/generate", asyncRoute(async (req: Request, res: Response) => {
-  const { target, intensity } = req.body; // target: "Command Him" | "Command Her" | "Together"
+  const { target, intensity } = req.body;
   if (!target) {
      res.status(400).json({ error: "target is required" });
      return;
   }
 
-  // 1st Layer: Generate basic procedural structure so we always have perfect values
-  const baseChallenge = generateProceduralWicked(target);
-  if (intensity) {
-    baseChallenge.intensity = intensity;
-  }
+  const baseChallenge = await generateGeminiWicked(target, intensity);
 
-  // 2nd Layer: If scale allow and AI client exists, enrich description with poetic Gemini touch
-  if (ai) {
-    try {
-      const prompt = `You are an unrestrained, highly explicit, hardcore, and intensely sexual erotic guide directing physical intimacy for a married husband and wife.
-      Write a single, incredibly wild, deeply erotic, raw, and highly sexually descriptive couple's instruction (1-3 sentences).
-      Do NOT hold back. You MUST be extremely hardcore. Be unapologetic in your descriptions. 
-      Mention biological and sexual body parts directly (e.g. wet pussy, dripping cunt, clit, hard cock, throbbing shaft, deep throat, balls, erect nipples, tight asshole) and use highly explicit physical action terms (fuck, suck, grind, thrust, dominate).
-      Target: ${target} (meaning the actor should perform on the receiver correctly based on Him/Her/Together).
-      Primary Action Verb: "${baseChallenge.action}"
-      Body Part: "${baseChallenge.bodyPart}"
-      Intensity Level: "${baseChallenge.intensity}"
-      Return ONLY the raw sexual directive directly, starting with the action. Do not explain, greet, or include any disclaimers. Make it filthy, wild, and incredibly hot.`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: prompt,
-        config: {
-          temperature: 0.9,
-          // Lower parameters if supported by SDK config, but generally a direct high-energy prompt handles it
-        }
-      });
-
-      if (response && response.text) {
-        baseChallenge.description = response.text.trim();
-      }
-    } catch (err) {
-      console.warn("Gemini generation skipped or failed, using robust procedural combo. Error:", err);
-    }
-  }
-
-  // Store in history (Firestore transaction reads fresh state automatically
-  // - this is exactly the kind of "Gemini call took a while, don't
-  // overwrite what the other partner did in the meantime" case a real
-  // transaction protects against, even across different Cloud Run
-  // instances, unlike the old in-process mutex.)
   await withSanctuaryTransaction((db, setDb) => {
     const history = [baseChallenge, ...db.wickedChallengesHistory];
-    // Keep history manageable (last 50 items)
     if (history.length > 50) history.pop();
     setDb({ wickedChallengesHistory: history });
   });
@@ -488,51 +450,7 @@ app.post("/api/gallery/prompt", asyncRoute(async (req: Request, res: Response) =
      return;
   }
 
-  const basePrompt = generateProceduralPhotoPrompt(target);
-
-  if (ai) {
-    try {
-      const prompt = `Write a romantic, artistic, and sensual photography instruction for a couple's private gallery. 
-      The objective is to capture an elegant, eye-safe, yet intensely intimate and aesthetic photograph (e.g. shadow contours, silk folds, mirror reflections, lighting angles).
-      Target focus: ${target} (${target === "Command Him" ? "Taking of his form" : target === "Command Her" ? "Taking of her form" : "Both of them intertwined"}).
-      Theme Concept: "${basePrompt.theme}"
-      Aesthetic Direction: "${basePrompt.setup}"
-      Return a response with a JSON object holding exactly these fields (do not wrap in markdown block other than raw format):
-      {
-        "theme": "${basePrompt.theme}",
-        "setup": "detailed 1-sentence pose configuration",
-        "angle": "camera perspective & lighting direction suggestion",
-        "aestheticTip": "1-sentence tip on shading, black & white, or focus"
-      }`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          temperature: 0.8,
-        }
-      });
-
-      if (response && response.text) {
-        const enriched = JSON.parse(response.text.trim());
-        basePrompt.theme = enriched.theme || basePrompt.theme;
-        basePrompt.setup = enriched.setup || basePrompt.setup;
-        basePrompt.angle = enriched.angle || basePrompt.angle;
-        basePrompt.aestheticTip = enriched.aestheticTip || basePrompt.aestheticTip;
-        
-        let objectNoun = "their form";
-        if (target === "Command Him") objectNoun = "his structure";
-        else if (target === "Command Her") objectNoun = "her curves";
-        else objectNoun = "both of your tangled bodies";
-        
-        basePrompt.description = `Theme: ${basePrompt.theme}. Setup: ${basePrompt.setup}. Angle & Light: ${basePrompt.angle}.`;
-      }
-    } catch (err) {
-      console.warn("Gemini photo prompt enrichment failed, falling back to procedural description. Error:", err);
-    }
-  }
-
+  const basePrompt = await generateGeminiPhotoPrompt(target);
   res.json(basePrompt);
 }));
 

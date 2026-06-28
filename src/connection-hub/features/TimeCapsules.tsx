@@ -5,10 +5,31 @@ import { apiFetch } from "../../lib/apiFetch";
 
 export default function TimeCapsules({ capsules, onUpdate }: { capsules: TimeCapsule[], onUpdate: () => void }) {
   const [view, setView] = useState<"list" | "create">("list");
+  const [content, setContent] = useState("");
+  const [unlockDate, setUnlockDate] = useState("");
   
   const handleUnlock = async (id: string) => {
     // Re-use care package endpoint structure for unlocking
     await apiFetch(`/api/hub/carePackages/${id}/unlock`, { method: "POST" });
+    onUpdate();
+  };
+
+  const handleSeal = async () => {
+    if (!content.trim() || !unlockDate) return;
+    await apiFetch("/api/hub/timeCapsules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: `capsule_${Date.now()}`,
+        creator: "Together",
+        content,
+        unlockDate,
+        unlocked: false
+      })
+    });
+    setContent("");
+    setUnlockDate("");
+    setView("list");
     onUpdate();
   };
 
@@ -33,11 +54,21 @@ export default function TimeCapsules({ capsules, onUpdate }: { capsules: TimeCap
         <div className="bg-black/40 border border-white/10 p-6 rounded-2xl space-y-4">
           <p className="text-xs text-purple-400 font-mono uppercase">Seal a message for the future</p>
           <div className="space-y-4">
-            <textarea placeholder="Write a message to your future selves..." className="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm text-white min-h-[120px] resize-none" />
+            <textarea 
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Write a message to your future selves..." 
+              className="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm text-white min-h-[120px] resize-none" 
+            />
             <div className="flex gap-4">
-              <input type="date" className="flex-1 bg-black/60 border border-white/10 rounded-xl p-3 text-sm text-white" />
+              <input 
+                type="date" 
+                value={unlockDate}
+                onChange={(e) => setUnlockDate(e.target.value)}
+                className="flex-1 bg-black/60 border border-white/10 rounded-xl p-3 text-sm text-white" 
+              />
               <button 
-                onClick={() => setView("list")}
+                onClick={handleSeal}
                 className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-6 rounded-xl transition cursor-pointer"
               >
                 Seal

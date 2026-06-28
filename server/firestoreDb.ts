@@ -243,6 +243,13 @@ export async function readDB(): Promise<SanctuaryDB> {
     conversationAnswers: mainData.conversationAnswers || [],
     storyProgress: mainData.storyProgress || DEFAULT_DB_BASE.storyProgress,
     teasers: mainData.teasers || [],
+    memoryPins: mainData.memoryPins || [],
+    carePackages: mainData.carePackages || [],
+    bucketListItems: mainData.bucketListItems || [],
+    timeCapsules: mainData.timeCapsules || [],
+    countdowns: mainData.countdowns || [],
+    dailyPrompts: mainData.dailyPrompts || [],
+    canvasStrokes: mainData.canvasStrokes || [],
   };
 }
 
@@ -266,6 +273,13 @@ export async function writeDB(data: SanctuaryDB): Promise<void> {
     conversationAnswers: data.conversationAnswers || [],
     storyProgress: data.storyProgress || DEFAULT_DB_BASE.storyProgress,
     teasers: data.teasers || [],
+    memoryPins: data.memoryPins || [],
+    carePackages: data.carePackages || [],
+    bucketListItems: data.bucketListItems || [],
+    timeCapsules: data.timeCapsules || [],
+    countdowns: data.countdowns || [],
+    dailyPrompts: data.dailyPrompts || [],
+    canvasStrokes: data.canvasStrokes || [],
   });
 }
 
@@ -364,6 +378,13 @@ export async function withSanctuaryTransaction<T>(
       conversationAnswers: mainData.conversationAnswers || [],
       storyProgress: mainData.storyProgress || DEFAULT_DB_BASE.storyProgress,
       teasers: mainData.teasers || [],
+      memoryPins: mainData.memoryPins || [],
+      carePackages: mainData.carePackages || [],
+      bucketListItems: mainData.bucketListItems || [],
+      timeCapsules: mainData.timeCapsules || [],
+      countdowns: mainData.countdowns || [],
+      dailyPrompts: mainData.dailyPrompts || [],
+      canvasStrokes: mainData.canvasStrokes || [],
     };
 
     let pendingUpdate: Partial<SanctuaryDB> | null = null;

@@ -48,6 +48,10 @@ export default function AdminPanel({
   const [newVoucherCategory, setNewVoucherCategory] = useState("");
   const [newGiftCategory, setNewGiftCategory] = useState("");
 
+  // Notification Email States
+  const [hisEmail, setHisEmail] = useState(settings.notificationConfig?.hisEmail || "");
+  const [herEmail, setHerEmail] = useState(settings.notificationConfig?.herEmail || "");
+
   // Bulk Importer States
   const [importFormat, setImportFormat] = useState<"json" | "csv">("json");
   const [importText, setImportText] = useState("");
@@ -449,8 +453,9 @@ export default function AdminPanel({
                 <label className="text-xs text-neutral-400 font-medium block uppercase tracking-wider">His Email</label>
                 <input
                   type="email"
-                  value={settings.notificationConfig?.hisEmail || ""}
-                  onChange={(e) => onUpdateSettings({ notificationConfig: { ...settings.notificationConfig, hisEmail: e.target.value } as any })}
+                  value={hisEmail}
+                  onChange={(e) => setHisEmail(e.target.value)}
+                  onBlur={() => onUpdateSettings({ notificationConfig: { ...settings.notificationConfig, hisEmail } as any })}
                   placeholder="e.g. him@example.com"
                   className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-800"
                 />
@@ -460,8 +465,9 @@ export default function AdminPanel({
                 <label className="text-xs text-neutral-400 font-medium block uppercase tracking-wider">Her Email</label>
                 <input
                   type="email"
-                  value={settings.notificationConfig?.herEmail || ""}
-                  onChange={(e) => onUpdateSettings({ notificationConfig: { ...settings.notificationConfig, herEmail: e.target.value } as any })}
+                  value={herEmail}
+                  onChange={(e) => setHerEmail(e.target.value)}
+                  onBlur={() => onUpdateSettings({ notificationConfig: { ...settings.notificationConfig, herEmail } as any })}
                   placeholder="e.g. her@example.com"
                   className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-800"
                 />

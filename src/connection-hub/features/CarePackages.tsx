@@ -5,9 +5,31 @@ import { apiFetch } from "../../lib/apiFetch";
 
 export default function CarePackages({ packages, onUpdate }: { packages: CarePackage[], onUpdate: () => void }) {
   const [view, setView] = useState<"list" | "create">("list");
+  const [message, setMessage] = useState("");
+  const [unlockDate, setUnlockDate] = useState("");
   
   const handleUnlock = async (id: string) => {
     await apiFetch(`/api/hub/carePackages/${id}/unlock`, { method: "POST" });
+    onUpdate();
+  };
+
+  const handleSend = async () => {
+    if (!message.trim() || !unlockDate) return;
+    await apiFetch("/api/hub/carePackages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: `package_${Date.now()}`,
+        sender: "Him", // Default fallback if needed, but the actual app might know who is logged in
+        recipient: "Her", 
+        unlockDate,
+        message,
+        unlocked: false
+      })
+    });
+    setMessage("");
+    setUnlockDate("");
+    setView("list");
     onUpdate();
   };
 
@@ -32,12 +54,21 @@ export default function CarePackages({ packages, onUpdate }: { packages: CarePac
         <div className="bg-black/40 border border-white/10 p-6 rounded-2xl space-y-4">
           <p className="text-xs text-orange-400 font-mono uppercase">Wrap a digital package</p>
           <div className="space-y-4">
-            <input type="text" placeholder="Title or teaser for the package" className="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm text-white" />
-            <textarea placeholder="The secret message..." className="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm text-white min-h-[100px] resize-none" />
+            <textarea 
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="The secret message..." 
+              className="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm text-white min-h-[100px] resize-none" 
+            />
             <div className="flex gap-4">
-              <input type="date" className="flex-1 bg-black/60 border border-white/10 rounded-xl p-3 text-sm text-white" />
+              <input 
+                type="date" 
+                value={unlockDate}
+                onChange={(e) => setUnlockDate(e.target.value)}
+                className="flex-1 bg-black/60 border border-white/10 rounded-xl p-3 text-sm text-white" 
+              />
               <button 
-                onClick={() => setView("list")}
+                onClick={handleSend}
                 className="bg-orange-600 hover:bg-orange-500 text-white font-bold px-6 rounded-xl transition cursor-pointer"
               >
                 Send

@@ -1,4 +1,7 @@
 import { WickedChallenge, PhotoCameraPrompt } from "../src/types.js";
+import { GoogleGenAI } from "@google/genai";
+
+const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 
 // --- WICKED CHAMBER LISTS ---
 export const ACTIONS = [
@@ -159,4 +162,91 @@ export function generateProceduralPhotoPrompt(target: "Command Him" | "Command H
     aestheticTip,
     description
   };
+}
+
+export async function generateGeminiWicked(target: "Command Him" | "Command Her" | "Together", intensity: string = "Sensual"): Promise<WickedChallenge> {
+  if (!ai) {
+    console.warn("GEMINI_API_KEY not set, falling back to procedural generation");
+    return generateProceduralWicked(target);
+  }
+
+  const prompt = `You are an intimate, uninhibited couples fantasy generator.
+Generate a wicked challenge for a couple.
+Target: ${target}
+Intensity Slider: ${intensity} (where Teasing is mild, Sensual is deep, Intense is dominant, and Wicked is straight up hardcore and filthy with no limits).
+If Intensity is Wicked, make it highly explicit, dominating, and hardcore.
+
+Respond with ONLY a JSON object (no markdown, no backticks) with these exact keys:
+"action": A short phrase describing the action (e.g. "relentlessly stroke and edge")
+"bodyPart": The specific body part being targeted
+"howTo": Instructions on how to execute it (e.g. "Intensity: Wicked. Tie them down and don't stop until they beg.")
+"description": A complete sentence describing the act (e.g. "Relentlessly stroke and edge his hard throbbing cock while tying his wrists.")`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: { temperature: 1.2 }
+    });
+    
+    let text = response.text || "{}";
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    const data = JSON.parse(text);
+
+    return {
+      id: `wicked_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      action: data.action || "intensely stimulate",
+      bodyPart: data.bodyPart || "their body",
+      intensity: intensity as any,
+      target,
+      howTo: data.howTo || "Follow your instincts.",
+      description: data.description || "Take absolute control and follow your instincts.",
+      timestamp: new Date().toISOString()
+    };
+  } catch (err) {
+    console.error("Gemini Wicked error:", err);
+    return generateProceduralWicked(target);
+  }
+}
+
+export async function generateGeminiPhotoPrompt(target: "Command Him" | "Command Her" | "Together"): Promise<PhotoCameraPrompt> {
+  if (!ai) {
+    return generateProceduralPhotoPrompt(target);
+  }
+
+  const prompt = `You are a professional boudoir and intimate couples photographer.
+Generate a creative photo setup for a private vault.
+Target: ${target}
+
+Respond with ONLY a JSON object (no markdown, no backticks) with these exact keys:
+"theme": A short theme (e.g. "Shadow & Silhouette")
+"setup": The physical pose or framing (e.g. "lying diagonally across a rumpled dark bedsheet")
+"angle": The camera angle (e.g. "a close-up macro shot")
+"aestheticTip": Photography advice (e.g. "No flash. Keep exposures low.")
+"description": A complete sentence describing the shot.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: { temperature: 1.0 }
+    });
+    
+    let text = response.text || "{}";
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    const data = JSON.parse(text);
+
+    return {
+      id: `photo_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      theme: data.theme || "Intimate Glow",
+      setup: data.setup || "natural pose",
+      angle: data.angle || "close-up",
+      target,
+      aestheticTip: data.aestheticTip || "Use warm lighting.",
+      description: data.description || "Capture the raw intimacy."
+    };
+  } catch (err) {
+    console.error("Gemini Photo error:", err);
+    return generateProceduralPhotoPrompt(target);
+  }
 }

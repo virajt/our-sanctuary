@@ -60,7 +60,7 @@ steps:
     entrypoint: 'bash'
     env:
       - 'RESEND_API_KEY=${_RESEND_API_KEY}'
-      - 'NOTIFY_EMAIL=${_NOTIFY_EMAIL}'
+      - 'NOTIFY_EMAIL=virajttrivedi@gmail.com'
       - 'COMMIT_SHA=${SHORT_SHA}'
     args:
       - 'scripts/notify-build-complete.sh'

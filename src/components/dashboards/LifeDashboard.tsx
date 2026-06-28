@@ -4,7 +4,8 @@ import { Calendar, Utensils } from "lucide-react";
 
 import PeriodTracker from "../PeriodTracker";
 import KitchenAlignment from "../KitchenAlignment";
-import { SanctuaryDB, CycleLog, PeriodConfig } from "../../types";
+import { SanctuaryDB, CycleLog, PeriodConfig, CyclePhase, KitchenDish } from "../../types";
+import { apiFetch } from "../../lib/apiFetch";
 
 export default function LifeDashboard({
   db,
@@ -13,6 +14,7 @@ export default function LifeDashboard({
   onUpdatePeriodConfig,
   onAddPeriodLog,
   onUpdateKitchen,
+  activePhase
 }: {
   db: SanctuaryDB;
   periodConfig: PeriodConfig;
@@ -20,8 +22,49 @@ export default function LifeDashboard({
   onUpdatePeriodConfig: any;
   onAddPeriodLog: any;
   onUpdateKitchen: any;
+  activePhase: CyclePhase;
 }) {
   const [activeSubTab, setActiveSubTab] = useState<"cycle" | "kitchen">("cycle");
+
+  const handleSaveKitchenDish = async (dish: Omit<KitchenDish, "id" | "timestamp">) => {
+    try {
+      const res = await apiFetch("/api/kitchen/dish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dish)
+      });
+      if (res.ok) onUpdateKitchen();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleDeleteKitchenDish = async (id: string) => {
+    try {
+      const res = await apiFetch(`/api/kitchen/dish/${id}/delete`, { method: "POST" });
+      if (res.ok) onUpdateKitchen();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleUpdateKitchenNotes = async (id: string, notes: string) => {
+    try {
+      const res = await apiFetch(`/api/kitchen/dish/${id}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes })
+      });
+      if (res.ok) onUpdateKitchen();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleUpdateKitchenRating = async (id: string, rating: number) => {
+    try {
+      const res = await apiFetch(`/api/kitchen/dish/${id}/rating`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating })
+      });
+      if (res.ok) onUpdateKitchen();
+    } catch (err) { console.error(err); }
+  };
 
   const subTabs = [
     { id: "cycle", label: "Cycle & Biology", icon: <Calendar className="w-4 h-4" /> },
@@ -95,9 +138,12 @@ export default function LifeDashboard({
               transition={{ duration: 0.3 }}
             >
               <KitchenAlignment
-                periodConfig={periodConfig}
-                kitchenDishes={db.kitchenDishes || []}
-                onUpdateKitchen={onUpdateKitchen}
+                dishes={db.kitchenDishes || []}
+                activePhase={activePhase}
+                onSaveDish={handleSaveKitchenDish}
+                onDeleteDish={handleDeleteKitchenDish}
+                onUpdateNotes={handleUpdateKitchenNotes}
+                onUpdateRating={handleUpdateKitchenRating}
               />
             </motion.div>
           )}
