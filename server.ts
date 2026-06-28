@@ -1606,6 +1606,78 @@ app.post("/api/features/whispers/delete", asyncRoute(async (req: Request, res: R
   });
   res.json({ success: true });
 }));
+
+app.post("/api/features/scavenger", asyncRoute(async (req: Request, res: Response) => {
+  const { clue } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    const clues = db.scavengerClues || [];
+    setDb({ scavengerClues: [...clues, clue] });
+  });
+  res.json({ success: true });
+}));
+
+app.post("/api/features/scavenger/delete", asyncRoute(async (req: Request, res: Response) => {
+  const { id } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    const clues = db.scavengerClues || [];
+    setDb({ scavengerClues: clues.filter(c => c.id !== id) });
+  });
+  res.json({ success: true });
+}));
+
+app.post("/api/features/scavenger/solve", asyncRoute(async (req: Request, res: Response) => {
+  const { id } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    const clues = db.scavengerClues || [];
+    setDb({
+      scavengerClues: clues.map(c => c.id === id ? { ...c, isSolved: true } : c)
+    });
+  });
+  res.json({ success: true });
+}));
+
+app.post("/api/features/scavenger/reset", asyncRoute(async (req: Request, res: Response) => {
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ scavengerClues: [] });
+  });
+  res.json({ success: true });
+}));
+
+app.post("/api/features/afterglow", asyncRoute(async (req: Request, res: Response) => {
+  const { entry } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    const logs = db.afterglowLogs || [];
+    setDb({ afterglowLogs: [...logs, entry] });
+  });
+  res.json({ success: true });
+}));
+
+app.post("/api/features/blindfold", asyncRoute(async (req: Request, res: Response) => {
+  const { command } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    const cmds = db.blindfoldCommands || [];
+    setDb({ blindfoldCommands: [...cmds, command] });
+  });
+  res.json({ success: true });
+}));
+
+app.post("/api/features/blindfold/next", asyncRoute(async (req: Request, res: Response) => {
+  const { id } = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    const cmds = db.blindfoldCommands || [];
+    setDb({
+      blindfoldCommands: cmds.map(c => c.id === id ? { ...c, isSpoken: true } : c)
+    });
+  });
+  res.json({ success: true });
+}));
+
+app.post("/api/features/blindfold/reset", asyncRoute(async (req: Request, res: Response) => {
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ blindfoldCommands: [] });
+  });
+  res.json({ success: true });
+}));
 // Vite Dev Server / Production routing
 async function initServer() {
   if (process.env.NODE_ENV !== "production") {

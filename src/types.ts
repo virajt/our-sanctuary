@@ -33,6 +33,29 @@ export interface Whisper {
   timestamp: string;
 }
 
+export interface ScavengerClue {
+  id: string;
+  clueText: string;
+  answer: string;
+  isSolved: boolean;
+  order: number;
+}
+
+export interface AfterglowLogEntry {
+  id: string;
+  date: string;
+  intensity: number;
+  highlights: string;
+  loggedBy: "Him" | "Her";
+}
+
+export interface BlindfoldCommand {
+  id: string;
+  text: string;
+  isSpoken: boolean;
+  order: number;
+}
+
 export type CyclePhase = "Menstrual" | "Follicular" | "Ovulatory" | "Luteal";
 
 export interface PhaseProtocol {
@@ -332,6 +355,7 @@ export interface SanctuaryDB {
   whispers?: Whisper[];
   scavengerClues?: ScavengerClue[];
   afterglowLogs?: AfterglowLogEntry[];
+  blindfoldCommands?: BlindfoldCommand[];
   desireVaultUnlocked?: boolean; // True if both turned their keys
   desireVaultHisKey?: boolean;
   desireVaultHerKey?: boolean;

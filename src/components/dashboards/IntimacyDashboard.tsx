@@ -10,6 +10,9 @@ import TemperatureSync from "./features/TemperatureSync";
 import TouchMap from "./features/TouchMap";
 import TeaseTimer from "./features/TeaseTimer";
 import Whispers from "./features/Whispers";
+import ScavengerHunt from "./features/ScavengerHunt";
+import BlindfoldMode from "./features/BlindfoldMode";
+import AfterglowLog from "./features/AfterglowLog";
 import { SanctuaryDB } from "../../types";
 
 export default function IntimacyDashboard({
@@ -23,17 +26,20 @@ export default function IntimacyDashboard({
   isLoading: boolean;
   navigate: (path: string) => void;
 }) {
-  const [activeSubTab, setActiveSubTab] = useState<"wicked" | "fantasy" | "vault" | "roulette" | "temperature" | "touchmap" | "teasetimer" | "whispers">("wicked");
+  const [activeSubTab, setActiveSubTab] = useState<"wicked" | "fantasy" | "vault" | "roulette" | "temperature" | "touchmap" | "teasetimer" | "whispers" | "scavenger" | "blindfold" | "afterglow">("wicked");
 
   const subTabs = [
     { id: "wicked", label: "Wicked", icon: <Flame className="w-4 h-4" /> },
     { id: "fantasy", label: "Fantasy", icon: <Sparkles className="w-4 h-4" /> },
-    { id: "vault", label: "Desire Vault" },
+    { id: "vault", label: "Vault" },
     { id: "roulette", label: "Roulette" },
-    { id: "temperature", label: "Temperature" },
-    { id: "touchmap", label: "Touch Map" },
-    { id: "teasetimer", label: "Tease Timer" },
+    { id: "temperature", label: "Temp" },
+    { id: "touchmap", label: "Map" },
+    { id: "teasetimer", label: "Timer" },
     { id: "whispers", label: "Whispers" },
+    { id: "scavenger", label: "Hunt" },
+    { id: "blindfold", label: "Audio" },
+    { id: "afterglow", label: "Log" },
   ] as const;
 
   return (
@@ -173,6 +179,42 @@ export default function IntimacyDashboard({
               transition={{ duration: 0.3 }}
             >
               <Whispers db={db} fetchDb={() => window.dispatchEvent(new Event("sanctuary:fetchDb"))} />
+            </motion.div>
+          )}
+
+          {activeSubTab === "scavenger" && (
+            <motion.div
+              key="scavenger"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ScavengerHunt db={db} fetchDb={() => window.dispatchEvent(new Event("sanctuary:fetchDb"))} />
+            </motion.div>
+          )}
+
+          {activeSubTab === "blindfold" && (
+            <motion.div
+              key="blindfold"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <BlindfoldMode db={db} fetchDb={() => window.dispatchEvent(new Event("sanctuary:fetchDb"))} />
+            </motion.div>
+          )}
+
+          {activeSubTab === "afterglow" && (
+            <motion.div
+              key="afterglow"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <AfterglowLog db={db} fetchDb={() => window.dispatchEvent(new Event("sanctuary:fetchDb"))} />
             </motion.div>
           )}
         </AnimatePresence>
