@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shuffle, ArrowRight, Rss, Layers, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Shuffle, ArrowRight, Rss, Layers, CircleCheck, RefreshCw } from 'lucide-react';
 import { ScreenType, ConversationPrompt } from '../types';
 import { CONVERSATION_PROMPTS } from '../data';
 
@@ -78,7 +78,7 @@ export const ConversationHubView: React.FC<ConversationHubViewProps> = ({ onNavi
               </p>
               <div className="border-t border-stone-800 pt-2 flex items-center justify-between text-[10px] font-mono text-emerald-400">
                 <span className="flex items-center space-x-1">
-                  <CheckCircle2 size={10} />
+                  <CircleCheck size={10} />
                   <span>Verified Secure</span>
                 </span>
                 <span>Room #4096</span>

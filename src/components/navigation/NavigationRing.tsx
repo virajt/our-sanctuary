@@ -11,7 +11,7 @@ export interface RingItem {
 }
 
 const RING_ITEMS: RingItem[] = [
-  { path: "/fantasy", label: "Intimacy", icon: <Sparkles className="w-8 h-8" />, color: "text-red-500" },
+  { path: "/intimacy", label: "Intimacy", icon: <Sparkles className="w-8 h-8" />, color: "text-red-500" },
   { path: "/hub", label: "Connection", icon: <Heart className="w-8 h-8" />, color: "text-rose-500" },
   { path: "/surprises", label: "Surprises", icon: <Package className="w-8 h-8" />, color: "text-amber-500" },
   { path: "/life", label: "Life", icon: <Utensils className="w-8 h-8" />, color: "text-emerald-500" },
@@ -73,6 +73,7 @@ export default function NavigationRing({ activePath, navigate }: { activePath: s
       <AnimatePresence>
         {isOpen && (
           <motion.div
+            key="navigation-ring-overlay"
             initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
             animate={{ opacity: 1, backdropFilter: "blur(20px)" }}
             exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
@@ -121,8 +122,8 @@ export default function NavigationRing({ activePath, navigate }: { activePath: s
                             : "bg-black/50 border-white/10 hover:bg-white/5 hover:border-white/30"
                         }`}
                         style={{
-                          // Synchronized counter-rotation
-                          rotateY: useTransform(smoothRotation, (r) => -angle - r)
+                          // Synchronized counter-rotation, explicitly returning a string with 'deg' to prevent NaN crashes
+                          rotateY: useTransform(smoothRotation, (r) => `${-angle - (Number(r) || 0)}deg`)
                         }}
                       >
                         <div className={`p-4 rounded-full bg-black/40 border border-white/5 mb-3 group-hover:scale-110 transition-transform ${item.color}`}>

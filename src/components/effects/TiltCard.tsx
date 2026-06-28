@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { motion } from "motion/react";
 
 interface TiltCardProps {
@@ -41,6 +41,27 @@ export default function TiltCard({ children, className = "", maxTilt = 6, glare 
   const handleMouseLeave = () => {
     setRotate({ x: 0, y: 0 });
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.DeviceOrientationEvent) return;
+    
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      if (e.beta === null || e.gamma === null) return;
+      
+      // e.beta is front-to-back tilt (-180 to 180) -> usually hold phone around 45deg
+      // e.gamma is left-to-right tilt (-90 to 90)
+      const beta = e.beta - 45; 
+      
+      // Constrain and map to maxTilt
+      const targetX = Math.max(-maxTilt, Math.min(maxTilt, -(beta / 5)));
+      const targetY = Math.max(-maxTilt, Math.min(maxTilt, e.gamma / 5));
+      
+      setRotate({ x: targetX, y: targetY });
+    };
+
+    window.addEventListener("deviceorientation", handleOrientation);
+    return () => window.removeEventListener("deviceorientation", handleOrientation);
+  }, [maxTilt]);
 
   return (
     <motion.div

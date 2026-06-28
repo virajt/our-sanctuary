@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, ShieldAlert, Key, HelpCircle, ToggleLeft, ToggleRight, Trash2, Eye, Download, Info } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Key, HelpCircle, ToggleLeft, ToggleRight, Trash, Eye, Download, Info } from 'lucide-react';
 import { ScreenType, SecurityLog } from '../types';
 import { SECURITY_LOGS } from '../data';
 

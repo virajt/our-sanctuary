@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { AdminSettings, SanctuaryDB, CycleLog, PeriodConfig } from "../types";
-import { Shield, Settings, Sliders, Database, Eye, Check, Plus, RefreshCw, Trash2, HelpCircle, CalendarHeart } from "lucide-react";
+import { Shield, Settings, Sliders, Database, Eye, Check, Plus, RefreshCw, Trash, HelpCircle, CalendarHeart } from "lucide-react";
 import { motion } from "motion/react";
 import CycleCalendar from "./CycleCalendar";
 
@@ -607,7 +607,7 @@ export default function AdminPanel({
                     <div key={act} className="flex items-center justify-between p-1 px-2.5 bg-luxury-950 rounded bg-opacity-40 text-xs text-neutral-300 border border-luxury-850">
                       <span className="truncate">{act}</span>
                       <button type="button" onClick={() => handleRemoveDictItem("wickedActions", act)} className="text-neutral-500 hover:text-red-400 transition">
-                        <Trash2 className="w-3 h-3" />
+                        <Trash className="w-3 h-3" />
                       </button>
                     </div>
                   ))}
@@ -639,7 +639,7 @@ export default function AdminPanel({
                     <div key={bp} className="flex items-center justify-between p-1 px-2.5 bg-luxury-950 rounded bg-opacity-40 text-xs text-neutral-300 border border-luxury-850">
                       <span className="truncate">{bp}</span>
                       <button type="button" onClick={() => handleRemoveDictItem("wickedBodyParts", bp)} className="text-neutral-500 hover:text-red-400 transition">
-                        <Trash2 className="w-3 h-3" />
+                        <Trash className="w-3 h-3" />
                       </button>
                     </div>
                   ))}
@@ -671,7 +671,7 @@ export default function AdminPanel({
                     <div key={theme} className="flex items-center justify-between p-1 px-2.5 bg-luxury-950 rounded bg-opacity-40 text-xs text-neutral-300 border border-luxury-850">
                       <span className="truncate">{theme}</span>
                       <button type="button" onClick={() => handleRemoveDictItem("photoThemes", theme)} className="text-neutral-500 hover:text-red-400 transition">
-                        <Trash2 className="w-3 h-3" />
+                        <Trash className="w-3 h-3" />
                       </button>
                     </div>
                   ))}
@@ -716,7 +716,7 @@ export default function AdminPanel({
                     <div key={cat} className="flex items-center justify-between p-1 px-2.5 bg-luxury-950 rounded bg-opacity-40 text-xs text-neutral-300 border border-luxury-850">
                       <span className="truncate">{cat}</span>
                       <button type="button" onClick={() => handleRemoveDictItem("voucherCategories", cat)} className="text-neutral-500 hover:text-red-400 transition">
-                        <Trash2 className="w-3 h-3" />
+                        <Trash className="w-3 h-3" />
                       </button>
                     </div>
                   ))}
@@ -750,7 +750,7 @@ export default function AdminPanel({
                     <div key={cat} className="flex items-center justify-between p-1 px-2.5 bg-luxury-950 rounded bg-opacity-40 text-xs text-neutral-300 border border-luxury-850">
                       <span className="truncate">{cat}</span>
                       <button type="button" onClick={() => handleRemoveDictItem("giftCategories", cat)} className="text-neutral-500 hover:text-red-400 transition">
-                        <Trash2 className="w-3 h-3" />
+                        <Trash className="w-3 h-3" />
                       </button>
                     </div>
                   ))}

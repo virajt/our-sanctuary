@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Package, Ticket, ShoppingBag } from "lucide-react";
 
@@ -32,7 +32,24 @@ export default function SurprisesDashboard({
   onAddPurchase: any;
   onDeletePurchase: any;
 }) {
-  const [activeSubTab, setActiveSubTab] = useState<"vouchers" | "gifts" | "wishlist">("vouchers");
+  const getInitialTab = () => {
+    const hash = window.location.hash.replace("#", "");
+    if (["vouchers", "gifts", "wishlist"].includes(hash)) {
+      return hash as "vouchers" | "gifts" | "wishlist";
+    }
+    return "vouchers";
+  };
+  const [activeSubTab, setActiveSubTab] = useState<"vouchers" | "gifts" | "wishlist">(getInitialTab);
+
+  useEffect(() => {
+    const handleHashChange = () => setActiveSubTab(getInitialTab());
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  const handleTabChange = (tabId: string) => {
+    window.location.hash = tabId;
+  };
 
   const subTabs = [
     { id: "vouchers", label: "Sensory Vouchers", icon: <Ticket className="w-4 h-4" /> },
@@ -56,7 +73,7 @@ export default function SurprisesDashboard({
           {subTabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveSubTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors duration-300 cursor-pointer ${
                 activeSubTab === tab.id
                   ? "text-amber-400"

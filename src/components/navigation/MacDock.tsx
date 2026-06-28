@@ -2,7 +2,7 @@ import React, { useRef } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import { Sparkles, Heart, Package, Utensils, Bell, Camera, Settings } from "lucide-react";
 
-export type NavPath = "/fantasy" | "/hub" | "/surprises" | "/life" | "/timeline" | "/gallery" | "/admin";
+export type NavPath = "/intimacy" | "/hub" | "/surprises" | "/life" | "/timeline" | "/gallery" | "/admin";
 
 interface DockItem {
   path: NavPath;
@@ -11,7 +11,7 @@ interface DockItem {
 }
 
 const dockItems: DockItem[] = [
-  { path: "/fantasy", label: "Intimacy", icon: <Sparkles className="w-5 h-5 text-red-500" /> },
+  { path: "/intimacy", label: "Intimacy", icon: <Sparkles className="w-5 h-5 text-red-500" /> },
   { path: "/hub", label: "Connection", icon: <Heart className="w-5 h-5 text-rose-500" /> },
   { path: "/surprises", label: "Surprises", icon: <Package className="w-5 h-5 text-amber-500" /> },
   { path: "/life", label: "Life", icon: <Utensils className="w-5 h-5 text-emerald-500" /> },

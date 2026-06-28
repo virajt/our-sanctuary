@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Gift as GiftType } from "../types";
-import { Gift as GiftIcon, Sparkles, CheckCircle2, ChevronRight, Plus, Trash2, PackageCheck } from "lucide-react";
+import { Gift as GiftIcon, Sparkles, CircleCheck, ChevronRight, Plus, Trash, PackageCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import TiltCard from "./effects/TiltCard";
 import Reveal from "./effects/Reveal";
@@ -221,7 +221,7 @@ export default function GiftsRealView({ gifts, categories, onGive, onReceive, on
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 text-emerald-400 font-mono">
-                    <CheckCircle2 className="w-3 h-3 shrink-0" />
+                    <CircleCheck className="w-3 h-3 shrink-0" />
                     Received with love
                   </span>
                 )}
@@ -238,7 +238,7 @@ export default function GiftsRealView({ gifts, categories, onGive, onReceive, on
                     className="p-1.5 rounded-xl border border-luxury-800 hover:border-red-500/40 text-neutral-500 hover:text-red-400 transition"
                     title="Delete gift plan"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash className="w-3.5 h-3.5" />
                   </button>
                 )}
 

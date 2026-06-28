@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CalendarDays, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, Plus, Trash } from "lucide-react";
 import { CountdownEvent } from "../../../types";
 import { apiFetch } from "../../lib/apiFetch";
 
@@ -87,7 +87,7 @@ export default function Countdowns({ countdowns, onUpdate }: { countdowns: Count
                   onClick={() => handleDelete(cd.id)}
                   className="opacity-0 group-hover:opacity-100 p-2 text-white/40 hover:text-red-400 transition cursor-pointer"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash className="w-4 h-4" />
                 </button>
               </div>
               <div className="z-10 flex items-baseline gap-2">

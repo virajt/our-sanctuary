@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ImportantDate } from "../types";
-import { Calendar, Bell, Plus, Trash2, Clock, Sparkles, Check, Info } from "lucide-react";
+import { Calendar, Bell, Plus, Trash, Clock, Sparkles, Check, Info } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import TiltCard from "./effects/TiltCard";
 import Reveal from "./effects/Reveal";
@@ -374,7 +374,7 @@ export default function DateRemindersView({ dates, onAddDate, onDeleteDate }: Da
                       className="p-1.5 rounded-xl border border-luxury-800 hover:border-red-500/30 text-neutral-500 hover:text-red-400 transition"
                       title="Deactivate Reminder"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { SensoryGift } from "../types";
 import { apiFetch } from "../lib/apiFetch";
-import { Gift, Heart, Sparkles, CheckCircle2, ChevronRight, Flame, Plus, Trash2, Calendar } from "lucide-react";
+import { Gift, Heart, Sparkles, CircleCheck, ChevronRight, Flame, Plus, Trash, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import TiltCard from "./effects/TiltCard";
 import Reveal from "./effects/Reveal";
@@ -286,7 +286,7 @@ export default function GiftsView({ gifts, categories, onClaim, onRedeem, onAddG
                     </span>
                   ) : (
                     <span className="flex items-center gap-1 text-emerald-400 font-mono">
-                      <CheckCircle2 className="w-3 h-3 shrink-0" />
+                      <CircleCheck className="w-3 h-3 shrink-0" />
                       Completed
                     </span>
                   )}
@@ -306,7 +306,7 @@ export default function GiftsView({ gifts, categories, onClaim, onRedeem, onAddG
                       className="p-1.5 rounded-xl border border-luxury-800 hover:border-red-500/40 text-neutral-500 hover:text-red-400 transition"
                       title="Delete Custom Voucher"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash className="w-3.5 h-3.5" />
                     </button>
                   )}
 

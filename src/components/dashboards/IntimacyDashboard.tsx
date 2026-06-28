@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Flame, Sparkles } from "lucide-react";
 
@@ -26,7 +26,23 @@ export default function IntimacyDashboard({
   isLoading: boolean;
   navigate: (path: string) => void;
 }) {
-  const [activeSubTab, setActiveSubTab] = useState<"wicked" | "fantasy" | "vault" | "roulette" | "temperature" | "touchmap" | "teasetimer" | "whispers" | "scavenger" | "blindfold" | "afterglow">("wicked");
+  const validTabs = ["wicked", "fantasy", "vault", "roulette", "temperature", "touchmap", "teasetimer", "whispers", "scavenger", "blindfold", "afterglow"];
+  const getInitialTab = () => {
+    const hash = window.location.hash.replace("#", "");
+    if (validTabs.includes(hash)) return hash as any;
+    return "wicked";
+  };
+  const [activeSubTab, setActiveSubTab] = useState<"wicked" | "fantasy" | "vault" | "roulette" | "temperature" | "touchmap" | "teasetimer" | "whispers" | "scavenger" | "blindfold" | "afterglow">(getInitialTab);
+
+  useEffect(() => {
+    const handleHashChange = () => setActiveSubTab(getInitialTab());
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  const handleTabChange = (tabId: string) => {
+    window.location.hash = tabId;
+  };
 
   const subTabs = [
     { id: "wicked", label: "Wicked", icon: <Flame className="w-4 h-4" /> },
@@ -58,7 +74,7 @@ export default function IntimacyDashboard({
           {subTabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveSubTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors duration-300 cursor-pointer ${
                 activeSubTab === tab.id
                   ? "text-red-400"

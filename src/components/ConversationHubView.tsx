@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ConversationAnswer } from "../types";
-import { MessageCircle, Send, Trash2 } from "lucide-react";
+import { MessageCircle, Send, Trash } from "lucide-react";
 import Reveal from "./effects/Reveal";
 import MagneticButton from "./effects/MagneticButton";
 
@@ -117,7 +117,7 @@ export default function ConversationHubView({ prompts, answers, onAnswer, onDele
                     <p className="text-xs text-neutral-300 italic">"{a.answer}"</p>
                   </div>
                   <button onClick={() => onDeleteAnswer(a.id)} className="text-neutral-600 hover:text-red-400 transition shrink-0">
-                    <Trash2 className="w-3 h-3" />
+                    <Trash className="w-3 h-3" />
                   </button>
                 </div>
               ))}

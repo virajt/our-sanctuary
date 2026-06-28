@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { KitchenDish, CyclePhase } from "../types";
 import { apiFetch } from "../lib/apiFetch";
-import { Utensils, Egg, Sparkles, Heart, Clock, Trash2, Calendar, BookOpen, ChefHat, Plus, CircleCheck, Info, Smile } from "lucide-react";
+import { Utensils, Egg, Sparkles, Heart, Clock, Trash, Calendar, BookOpen, ChefHat, Plus, CircleCheck, Info, Smile } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import TiltCard from "./effects/TiltCard";
 import Reveal from "./effects/Reveal";
@@ -550,7 +550,7 @@ export default function KitchenAlignment({
                     className="p-1 rounded-lg border border-transparent hover:border-red-900/40 text-neutral-600 hover:text-red-400 transition"
                     title="Delete recipe from logs"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash className="w-3.5 h-3.5" />
                   </button>
                 </div>
 

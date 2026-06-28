@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { VaultPhoto, PhotoCameraPrompt } from "../types";
-import { Unlock, Sparkles, Image, Check, Plus, Upload, Trash2, Camera, Calendar } from "lucide-react";
+import { Unlock, Sparkles, Image, Check, Plus, Upload, Trash, Camera, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import TiltCard from "./effects/TiltCard";
 import Reveal from "./effects/Reveal";
@@ -296,7 +296,7 @@ export default function PrivateGallery({ photos, onGeneratePrompt, onUploadPhoto
                             className="p-1.5 rounded-lg bg-luxury-950/90 text-neutral-400 hover:text-red-400 hover:border-red-500/20 border border-luxury-800 transition"
                             title="Delete memory"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Teaser } from "../types";
-import { Clock, Plus, Trash2, Mail } from "lucide-react";
+import { Clock, Plus, Trash, Mail } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Reveal from "./effects/Reveal";
 import MagneticButton from "./effects/MagneticButton";
@@ -145,7 +145,7 @@ export default function TeasersView({ teasers, onAddTeaser, onDeleteTeaser }: Te
                     />
                     {hints.length > 1 && (
                       <button type="button" onClick={() => removeHintRow(index)} className="text-neutral-600 hover:text-red-400 transition shrink-0 p-2">
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
@@ -175,7 +175,7 @@ export default function TeasersView({ teasers, onAddTeaser, onDeleteTeaser }: Te
                   <p className="text-[10px] text-neutral-500 font-mono">{teaser.targetDate} - hints go to {teaser.notifyWho}</p>
                 </div>
                 <button onClick={() => onDeleteTeaser(teaser.id)} className="text-neutral-600 hover:text-red-400 transition shrink-0">
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash className="w-3.5 h-3.5" />
                 </button>
               </div>
               <div className="space-y-2">

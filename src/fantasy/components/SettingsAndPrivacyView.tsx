@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, ShieldCheck, Heart, User, MapPin, Trash2, ShieldAlert, Sparkles, Info } from 'lucide-react';
+import { Settings, ShieldCheck, Heart, User, MapPin, Trash, ShieldAlert, Sparkles, Info } from 'lucide-react';
 import { ScreenType } from '../types';
 
 interface SettingsAndPrivacyViewProps {
@@ -55,7 +55,7 @@ export const SettingsAndPrivacyView: React.FC<SettingsAndPrivacyViewProps> = ({
           className="max-w-md mx-auto text-center py-20 space-y-6"
         >
           <div className="w-16 h-16 bg-rose-950/20 text-rose-500 border border-rose-900 rounded-full flex items-center justify-center mx-auto animate-pulse">
-            <Trash2 size={28} />
+            <Trash size={28} />
           </div>
           <h2 className="font-display text-3xl text-stone-100 font-extralight tracking-tight">Vault Purged.</h2>
           <p className="font-sans text-stone-500 text-sm leading-relaxed font-light">

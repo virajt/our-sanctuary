@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { GiftPurchase } from "../types";
 import TiltCard from "./effects/TiltCard";
 import MagneticButton from "./effects/MagneticButton";
-import { DollarSign, Tag, Gift, Trash2, Camera, UploadCloud, Eye, Plus, Sparkles, Check, Filter } from "lucide-react";
+import { DollarSign, Tag, Gift, Trash, Camera, UploadCloud, Eye, Plus, Sparkles, Check, Filter } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface GiftPurchasesViewProps {
@@ -447,7 +447,7 @@ export default function GiftPurchasesView({ purchases, onAddPurchase, onDeletePu
                     className="p-1.5 rounded-lg border border-luxury-800 hover:border-red-500/30 text-neutral-500 hover:text-red-400 transition"
                     title="Delete log"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
