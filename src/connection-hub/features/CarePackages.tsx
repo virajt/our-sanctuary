@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Package, Lock, Unlock, ArrowRight } from "lucide-react";
 import { CarePackage } from "../../../types";
-import { apiFetch } from "../../../lib/apiFetch";
+import { apiFetch } from "../../lib/apiFetch";
 
 export default function CarePackages({ packages, onUpdate }: { packages: CarePackage[], onUpdate: () => void }) {
   const [view, setView] = useState<"list" | "create">("list");

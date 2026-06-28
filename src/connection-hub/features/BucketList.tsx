@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { CheckSquare, Plus, Check } from "lucide-react";
 import { BucketListItem } from "../../../types";
-import { apiFetch } from "../../../lib/apiFetch";
+import { apiFetch } from "../../lib/apiFetch";
 
 export default function BucketList({ items, onUpdate }: { items: BucketListItem[], onUpdate: () => void }) {
   const [newItem, setNewItem] = useState("");

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Clock, Lock, Unlock, ArrowRight } from "lucide-react";
 import { TimeCapsule } from "../../../types";
-import { apiFetch } from "../../../lib/apiFetch";
+import { apiFetch } from "../../lib/apiFetch";
 
 export default function TimeCapsules({ capsules, onUpdate }: { capsules: TimeCapsule[], onUpdate: () => void }) {
   const [view, setView] = useState<"list" | "create">("list");

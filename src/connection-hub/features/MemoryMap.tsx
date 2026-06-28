@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Map, MapPin } from "lucide-react";
 import { MemoryPin } from "../../../types";
-import { apiFetch } from "../../../lib/apiFetch";
+import { apiFetch } from "../../lib/apiFetch";
 
 export default function MemoryMap({ pins, onUpdate }: { pins: MemoryPin[], onUpdate: () => void }) {
   const [adding, setAdding] = useState(false);

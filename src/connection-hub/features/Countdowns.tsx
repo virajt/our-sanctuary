@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { CalendarDays, Plus, Trash2 } from "lucide-react";
 import { CountdownEvent } from "../../../types";
-import { apiFetch } from "../../../lib/apiFetch";
+import { apiFetch } from "../../lib/apiFetch";
 
 export default function Countdowns({ countdowns, onUpdate }: { countdowns: CountdownEvent[], onUpdate: () => void }) {
   const [adding, setAdding] = useState(false);

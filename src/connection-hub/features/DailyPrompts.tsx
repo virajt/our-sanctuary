@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { BookOpen, Check } from "lucide-react";
 import { DailyPrompt } from "../../../types";
-import { apiFetch } from "../../../lib/apiFetch";
+import { apiFetch } from "../../lib/apiFetch";
 
 export default function DailyPrompts({ prompts, onUpdate }: { prompts: DailyPrompt[], onUpdate: () => void }) {
   const today = new Date().toISOString().split("T")[0];
