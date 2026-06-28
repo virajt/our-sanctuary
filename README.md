@@ -23,3 +23,4 @@ View your app in AI Studio: https://ai.studio/apps/ffbd97e6-798c-4e5b-8687-95b9f
 <!-- clean single-trigger build 2026-06-25T03:05:01Z -->
 <!-- testing repository-mode cloudbuild.yaml trigger 2026-06-25T03:21:59Z -->
 <!-- redeploy trigger 2026-06-25T07:27:07Z -->
+<!-- redeploy to verify /internal/run-reminders is actually live 2026-06-28T01:21:52Z -->
