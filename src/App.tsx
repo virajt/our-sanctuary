@@ -4,10 +4,8 @@ import MusicPlayer from "./components/MusicPlayer";
 import GiftsView from "./components/GiftsView";
 import GiftsRealView from "./components/GiftsRealView";
 import VisualLibraryView from "./components/VisualLibraryView";
-import ConversationHubView from "./components/ConversationHubView";
-import StoryEngineView from "./components/StoryEngineView";
 import TeasersView from "./components/TeasersView";
-import { VISUAL_LIBRARY, CONVERSATION_PROMPTS, STORY_STEPS } from "./data/fantasyContent";
+import { VISUAL_LIBRARY } from "./data/fantasyContent";
 import WickedChamber from "./components/WickedChamber";
 import PrivateGallery from "./components/PrivateGallery";
 import PeriodTracker from "./components/PeriodTracker";
@@ -15,16 +13,39 @@ import AdminPanel from "./components/AdminPanel";
 import DateRemindersView from "./components/DateRemindersView";
 import GiftPurchasesView from "./components/GiftPurchasesView";
 import KitchenAlignment from "./components/KitchenAlignment";
+import SurprisesDashboard from "./components/dashboards/SurprisesDashboard";
+import LifeDashboard from "./components/dashboards/LifeDashboard";
+import MemoriesDashboard from "./components/dashboards/MemoriesDashboard";
+import IntimacyDashboard from "./components/dashboards/IntimacyDashboard";
+import TimelineDashboard from "./components/dashboards/TimelineDashboard";
+import MacDock, { NavPath } from "./components/navigation/MacDock";
 import GoogleSignIn from "./components/GoogleSignIn";
+import ConnectionHubView from "./connection-hub/ConnectionHubView";
 import { SanctuaryTheme } from "./components/effects/EmberFieldBackground";
 const EmberFieldBackground = React.lazy(() => import("./components/effects/EmberFieldBackground"));
+import { FantasyApp } from "./fantasy/FantasyApp";
 import { useAuth } from "./hooks/useAuth";
 import { apiFetch } from "./lib/apiFetch";
 import { Gift, Flame, Shield, Calendar, Settings, Sparkles, Heart, Bell, Tag, Utensils, Lock, Eye, EyeOff, KeyRound, LogOut, PackageCheck, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"gifts" | "realgifts" | "purchases" | "wicked" | "gallery" | "period" | "dates" | "admin" | "kitchen" | "library" | "conversation" | "story" | "teasers">("gifts");
+  const [activePath, setActivePath] = useState<string>(
+    window.location.pathname === "/" ? "/surprises" : window.location.pathname
+  );
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setActivePath(window.location.pathname === "/" ? "/surprises" : window.location.pathname);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigate = (path: string) => {
+    window.history.pushState({}, "", path);
+    setActivePath(path);
+  };
   const [isLoading, setIsLoading] = useState(true);
   const [db, setDb] = useState<SanctuaryDB | null>(null);
 
@@ -81,7 +102,7 @@ export default function App() {
     localStorage.removeItem("sanctuary_gallery_unlocked");
     setAdminPasswordInput("");
     setGalleryPasswordInput("");
-    setActiveTab("gifts"); // default tab
+    navigate("/surprises");
   };
 
   const handleSignOut = async () => {
@@ -236,50 +257,6 @@ export default function App() {
       if (response.ok) fetchDatabase();
     } catch (err) {
       console.error("Failed to delete gift:", err);
-    }
-  };
-
-  const handleAnswerPrompt = async (promptId: string, question: string, answeredBy: "Him" | "Her" | "Together", answer: string) => {
-    try {
-      const response = await apiFetch("/api/conversation/answer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ promptId, question, answeredBy, answer })
-      });
-      if (response.ok) fetchDatabase();
-    } catch (err) {
-      console.error("Failed to save conversation answer:", err);
-    }
-  };
-
-  const handleDeleteConversationAnswer = async (id: string) => {
-    try {
-      const response = await apiFetch(`/api/conversation/answer/${id}`, { method: "DELETE" });
-      if (response.ok) fetchDatabase();
-    } catch (err) {
-      console.error("Failed to delete conversation answer:", err);
-    }
-  };
-
-  const handleAdvanceStory = async (stepId: string) => {
-    try {
-      const response = await apiFetch("/api/story/advance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stepId })
-      });
-      if (response.ok) fetchDatabase();
-    } catch (err) {
-      console.error("Failed to advance story:", err);
-    }
-  };
-
-  const handleResetStory = async () => {
-    try {
-      const response = await apiFetch("/api/story/reset", { method: "POST" });
-      if (response.ok) fetchDatabase();
-    } catch (err) {
-      console.error("Failed to reset story:", err);
     }
   };
 
@@ -736,354 +713,97 @@ export default function App() {
           <MusicPlayer />
         </section>
 
-        {/* Central bento navigation layout switch */}
-        <nav className="max-w-4xl mx-auto" id="sanctuary-nav">
-          <div className="grid grid-cols-4 md:grid-cols-13 gap-1 bg-white/[0.02] p-2 rounded-2xl border border-white/10 shadow-2xl overflow-hidden backdrop-blur-lg">
-            
-            {/* Button 1: Vouchers */}
-            <button
-              onClick={() => setActiveTab("gifts")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "gifts"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "gifts" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Gift className="w-4 h-4 text-red-500/80" />
-              <span className="text-[9px] tracking-wide uppercase">Vouchers</span>
-            </button>
-
-            {/* Button 1b: Real Gifts */}
-            <button
-              onClick={() => setActiveTab("realgifts")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "realgifts"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "realgifts" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <PackageCheck className="w-4 h-4 text-red-500/80" />
-              <span className="text-[9px] tracking-wide uppercase">Gifts</span>
-            </button>
-
-            {/* Button 2: Legacy Gift Purchases */}
-            <button
-              onClick={() => setActiveTab("purchases")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "purchases"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "purchases" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Tag className="w-4 h-4 text-red-500/80" />
-              <span className="text-[9px] tracking-wide uppercase">Gifts</span>
-            </button>
-
-            {/* Button 3: Wicked Chamber */}
-            <button
-              onClick={() => setActiveTab("wicked")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "wicked"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "wicked" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Flame className={`w-4 h-4 ${activeTab === "wicked" ? "animate-pulse text-red-500" : "text-white/40 group-hover:text-red-400"}`} />
-              <span className="text-[9px] tracking-wide uppercase">Wicked</span>
-            </button>
-
-            {/* Button 4: Vault Gallery */}
-            <button
-              onClick={() => setActiveTab("gallery")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "gallery"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "gallery" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Shield className="w-4 h-4 text-red-500/80" />
-              <span className="text-[9px] tracking-wide uppercase">Vault</span>
-            </button>
-
-            {/* Button 5: Cycle Tracker */}
-            <button
-              onClick={() => setActiveTab("period")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "period"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "period" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Calendar className="w-4 h-4 text-red-500/80" />
-              <span className="text-[9px] tracking-wide uppercase">Cycle</span>
-            </button>
-
-            {/* Button 6: Kitchen Alignment */}
-            <button
-              onClick={() => setActiveTab("kitchen")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "kitchen"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "kitchen" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Utensils className="w-4 h-4 text-red-500/80" />
-              <span className="text-[9px] tracking-wide uppercase">Kitchen</span>
-            </button>
-
-            {/* Button 6b: Visual Library */}
-            <button
-              onClick={() => setActiveTab("library")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "library"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "library" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Heart className="w-4 h-4 text-red-500/80" />
-              <span className="text-[9px] tracking-wide uppercase">Library</span>
-            </button>
-
-            {/* Button 6c: Conversation Hub */}
-            <button
-              onClick={() => setActiveTab("conversation")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "conversation"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "conversation" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Bell className="w-4 h-4 text-red-500/80" />
-              <span className="text-[9px] tracking-wide uppercase">Talk</span>
-            </button>
-
-            {/* Button 6d: Story Engine */}
-            <button
-              onClick={() => setActiveTab("story")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "story"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "story" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Sparkles className="w-4 h-4 text-red-500/80" />
-              <span className="text-[9px] tracking-wide uppercase">Story</span>
-            </button>
-
-            {/* Button 6e: Teasers */}
-            <button
-              onClick={() => setActiveTab("teasers")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "teasers"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "teasers" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Clock className="w-4 h-4 text-red-500/80" />
-              <span className="text-[9px] tracking-wide uppercase">Teasers</span>
-            </button>
-
-            {/* Button 6: Sacred Date Reminders */}
-            <button
-              onClick={() => setActiveTab("dates")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "dates"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "dates" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Bell className="w-4 h-4 text-red-500/80" />
-              <span className="text-[9px] tracking-wide uppercase">Reminders</span>
-            </button>
-
-            {/* Button 7: Admin Panel */}
-            <button
-              onClick={() => setActiveTab("admin")}
-              className={`relative py-2.5 px-1 rounded-xl transition-colors duration-300 flex flex-col items-center justify-center gap-1 group cursor-pointer border overflow-hidden ${
-                activeTab === "admin"
-                  ? "border-red-800 text-white font-bold glow-red"
-                  : "border-transparent text-white/45 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {activeTab === "admin" && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 bg-red-950/45 -z-10"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Settings className="w-4 h-4 text-red-500/80" />
-              <span className="text-[9px] tracking-wide uppercase">Admin</span>
-            </button>
-
-          </div>
-        </nav>
+        <MacDock activePath={activePath} navigate={(p: NavPath) => navigate(p)} />
 
         {/* Switch panel view transitions container */}
         <main className="max-w-6xl mx-auto pt-4 pb-12" id="sanctuary-panels">
           <AnimatePresence mode="wait">
             
-            {activeTab === "gifts" && (
+            {activePath.startsWith("/surprises") && (
               <motion.div
                 initial={{ opacity: 0, y: 18, scale: 0.985 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -18, scale: 0.985 }}
                 transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                key="giftsView"
+                key="surprisesDashboard"
               >
-                <GiftsView
-                  gifts={db.gifts}
-                  categories={db.adminSettings.voucherCategories || ["Pampering", "Sensual", "Intimate", "Wicked"]}
+                <SurprisesDashboard
+                  db={db}
                   onClaim={handleClaimGift}
                   onRedeem={handleRedeemGift}
                   onAddGift={handleAddGift}
                   onDeleteCustom={handleDeleteGift}
-                />
-              </motion.div>
-            )}
-
-            {activeTab === "realgifts" && (
-              <motion.div
-                initial={{ opacity: 0, y: 18, scale: 0.985 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -18, scale: 0.985 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                key="realGiftsView"
-              >
-                <GiftsRealView
-                  gifts={db.realGifts || []}
-                  categories={db.adminSettings.giftCategories || ["Jewelry", "Experience", "Letter", "Trip", "Keepsake", "Other"]}
-                  onGive={handleGiveRealGift}
-                  onReceive={handleReceiveRealGift}
-                  onAddGift={handleAddRealGift}
-                  onDeleteCustom={handleDeleteRealGift}
-                />
-              </motion.div>
-            )}
-
-            {activeTab === "purchases" && (
-              <motion.div
-                initial={{ opacity: 0, y: 18, scale: 0.985 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -18, scale: 0.985 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                key="giftPurchasesView"
-              >
-                <GiftPurchasesView
-                  purchases={db.giftPurchases || []}
+                  onGiveRealGift={handleGiveRealGift}
+                  onReceiveRealGift={handleReceiveRealGift}
+                  onAddRealGift={handleAddRealGift}
+                  onDeleteRealGift={handleDeleteRealGift}
                   onAddPurchase={handleAddGiftPurchase}
                   onDeletePurchase={handleDeleteGiftPurchase}
                 />
               </motion.div>
             )}
 
-            {activeTab === "wicked" && (
+            {activePath.startsWith("/fantasy") && (
               <motion.div
                 initial={{ opacity: 0, y: 18, scale: 0.985 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -18, scale: 0.985 }}
                 transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                key="wickedChamber"
+                key="intimacyDashboard"
               >
-                <WickedChamber
-                  challengesHistory={db.wickedChallengesHistory}
-                  onGenerate={handleGenerateWicked}
+                <IntimacyDashboard
+                  db={db}
+                  onGenerateWicked={handleGenerateWicked}
                   isLoading={isLoading}
+                  navigate={navigate}
                 />
               </motion.div>
             )}
 
-            {activeTab === "gallery" && (
+            {activePath.startsWith("/life") && (
               <motion.div
                 initial={{ opacity: 0, y: 18, scale: 0.985 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -18, scale: 0.985 }}
                 transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                key="privateGallery"
+                key="lifeDashboard"
+              >
+                <LifeDashboard
+                  db={db}
+                  periodConfig={db.periodConfig}
+                  cycleLogs={db.cycleLogs}
+                  onUpdatePeriodConfig={handleUpdatePeriodConfig}
+                  onAddPeriodLog={handleAddPeriodLog}
+                  onUpdateKitchen={fetchDatabase}
+                />
+              </motion.div>
+            )}
+
+            {activePath.startsWith("/timeline") && (
+              <motion.div
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                key="timelineDashboard"
+              >
+                <TimelineDashboard
+                  db={db}
+                  onAddDate={handleAddDate}
+                  onDeleteDate={handleDeleteDate}
+                  onAddTeaser={handleAddTeaser}
+                  onDeleteTeaser={handleDeleteTeaser}
+                />
+              </motion.div>
+            )}
+
+            {activePath.startsWith("/gallery") && (
+              <motion.div
+                initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.985 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                key="memoriesDashboard"
               >
                 {!isGalleryUnlocked ? (
                   <div className="max-w-md mx-auto bg-black/40 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 text-center space-y-6 shadow-2xl relative overflow-hidden" id="gallery-gate">
@@ -1151,134 +871,31 @@ export default function App() {
                       </button>
                     </div>
                     
-                    <PrivateGallery
-                      photos={db.vaultPhotos}
-                      onGeneratePrompt={handleGeneratePrompt}
-                      onUploadPhoto={handleUploadPhoto}
+                    <MemoriesDashboard
+                      db={db}
+                      onAddPhoto={handleUploadPhoto as any}
                       onDeletePhoto={handleDeletePhoto}
-                      isLoading={isLoading}
+                      onAddLibraryItem={() => {}}
+                      onDeleteLibraryItem={() => {}}
                     />
                   </div>
                 )}
               </motion.div>
             )}
 
-            {activeTab === "period" && (
+            {activePath.startsWith("/hub") && (
               <motion.div
                 initial={{ opacity: 0, y: 18, scale: 0.985 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -18, scale: 0.985 }}
                 transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                key="periodTracker"
+                key="connectionHubView"
               >
-                <PeriodTracker
-                  config={db.periodConfig}
-                  logs={db.cycleLogs}
-                  onUpdateConfig={handleUpdatePeriodConfig}
-                  onAddLog={handleAddPeriodLog}
-                  onImportSuccess={fetchDatabase}
-                />
+                <ConnectionHubView db={db} onUpdate={fetchDatabase} />
               </motion.div>
             )}
 
-            {activeTab === "kitchen" && (
-              <motion.div
-                initial={{ opacity: 0, y: 18, scale: 0.985 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -18, scale: 0.985 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                key="kitchenAlignment"
-              >
-                <KitchenAlignment
-                  dishes={db.kitchenDishes || []}
-                  activePhase={getWifeCurrentPhase()}
-                  onSaveDish={handleSaveKitchenDish}
-                  onDeleteDish={handleDeleteKitchenDish}
-                  onUpdateNotes={handleUpdateKitchenNotes}
-                  onUpdateRating={handleUpdateKitchenRating}
-                />
-              </motion.div>
-            )}
-
-            {activeTab === "library" && (
-              <motion.div
-                initial={{ opacity: 0, y: 18, scale: 0.985 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -18, scale: 0.985 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                key="visualLibrary"
-              >
-                <VisualLibraryView items={VISUAL_LIBRARY} />
-              </motion.div>
-            )}
-
-            {activeTab === "conversation" && (
-              <motion.div
-                initial={{ opacity: 0, y: 18, scale: 0.985 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -18, scale: 0.985 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                key="conversationHub"
-              >
-                <ConversationHubView
-                  prompts={CONVERSATION_PROMPTS}
-                  answers={db.conversationAnswers || []}
-                  onAnswer={handleAnswerPrompt}
-                  onDeleteAnswer={handleDeleteConversationAnswer}
-                />
-              </motion.div>
-            )}
-
-            {activeTab === "story" && (
-              <motion.div
-                initial={{ opacity: 0, y: 18, scale: 0.985 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -18, scale: 0.985 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                key="storyEngine"
-              >
-                <StoryEngineView
-                  steps={STORY_STEPS}
-                  progress={db.storyProgress || { currentStepId: "root", history: [], updatedAt: "" }}
-                  onAdvance={handleAdvanceStory}
-                  onReset={handleResetStory}
-                />
-              </motion.div>
-            )}
-
-            {activeTab === "teasers" && (
-              <motion.div
-                initial={{ opacity: 0, y: 18, scale: 0.985 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -18, scale: 0.985 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                key="teasersView"
-              >
-                <TeasersView
-                  teasers={db.teasers || []}
-                  onAddTeaser={handleAddTeaser}
-                  onDeleteTeaser={handleDeleteTeaser}
-                />
-              </motion.div>
-            )}
-
-            {activeTab === "dates" && (
-              <motion.div
-                initial={{ opacity: 0, y: 18, scale: 0.985 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -18, scale: 0.985 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                key="dateReminders"
-              >
-                <DateRemindersView
-                  dates={db.importantDates || []}
-                  onAddDate={handleAddDate}
-                  onDeleteDate={handleDeleteDate}
-                />
-              </motion.div>
-            )}
-
-            {activeTab === "admin" && (
+            {activePath.startsWith("/admin") && (
               <motion.div
                 initial={{ opacity: 0, y: 18, scale: 0.985 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}

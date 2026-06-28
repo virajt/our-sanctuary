@@ -14,8 +14,6 @@ import {
   ImportantDate,
   GiftPurchase,
   Gift,
-  ConversationAnswer,
-  StoryProgress,
   Teaser,
   CycleTrackerDB
 } from "./src/types";
@@ -102,8 +100,9 @@ app.post("/internal/run-reminders", asyncRoute(async (req: Request, res: Respons
     return;
   }
 
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
+  const [yyyy, mm, dd] = todayStr.split("-").map(Number);
+  const today = new Date(yyyy, mm - 1, dd);
   let datesNotified = 0;
   let teaserHintsNotified = 0;
 
@@ -118,13 +117,14 @@ app.post("/internal/run-reminders", asyncRoute(async (req: Request, res: Respons
       const d = dates[i];
       if (d.lastNotifiedDate === todayStr) continue; // already sent today
 
-      const target = new Date(d.date + "T00:00:00");
-      const targetThisYear = new Date(today.getFullYear(), target.getMonth(), target.getDate());
-      let daysUntil = Math.ceil((targetThisYear.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86400000);
+      const [ty, tm, td] = d.date.split("-").map(Number);
+      const targetThisYear = new Date(today.getFullYear(), tm - 1, td);
+      let daysUntil = Math.ceil((targetThisYear.getTime() - today.getTime()) / 86400000);
+      
       if (daysUntil < 0) {
         // Already passed this year for recurring categories (birthdays/anniversaries) - check next year's occurrence instead.
-        const targetNextYear = new Date(today.getFullYear() + 1, target.getMonth(), target.getDate());
-        daysUntil = Math.ceil((targetNextYear.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86400000);
+        const targetNextYear = new Date(today.getFullYear() + 1, tm - 1, td);
+        daysUntil = Math.ceil((targetNextYear.getTime() - today.getTime()) / 86400000);
       }
 
       if (daysUntil === 0 || daysUntil === d.reminderDaysAhead) {
@@ -148,8 +148,9 @@ app.post("/internal/run-reminders", asyncRoute(async (req: Request, res: Respons
 
     for (let i = 0; i < teasers.length; i++) {
       const t = teasers[i];
-      const target = new Date(t.targetDate + "T00:00:00");
-      const daysUntilTarget = Math.ceil((target.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86400000);
+      const [ty, tm, td] = t.targetDate.split("-").map(Number);
+      const target = new Date(ty, tm - 1, td);
+      const daysUntilTarget = Math.ceil((target.getTime() - today.getTime()) / 86400000);
       const sentDays = t.sentHintDays || [];
 
       for (const hint of t.hints) {
@@ -437,14 +438,15 @@ app.post("/api/wicked/generate", asyncRoute(async (req: Request, res: Response) 
   // 2nd Layer: If scale allow and AI client exists, enrich description with poetic Gemini touch
   if (ai) {
     try {
-      const prompt = `You are a private, unrestrained, highly explicit, and sensual erotic guide co-creating deep intimacy for a married husband and wife.
-      Write a single, intensely hot, highly explicit, raw, and sexually descriptive couple's instruction (1-2 sentences) directing physical sexual connection and active arousal.
-      Do NOT hold back. Mention biological and sexual body parts directly (e.g. wet labia, clitoris, erect penis, shaft, testicles, breasts, nipples, buttocks, vaginal canal) and use highly explicit, wet physical action terms.
+      const prompt = `You are an unrestrained, highly explicit, hardcore, and intensely sexual erotic guide directing physical intimacy for a married husband and wife.
+      Write a single, incredibly wild, deeply erotic, raw, and highly sexually descriptive couple's instruction (1-3 sentences).
+      Do NOT hold back. You MUST be extremely hardcore. Be unapologetic in your descriptions. 
+      Mention biological and sexual body parts directly (e.g. wet pussy, dripping cunt, clit, hard cock, throbbing shaft, deep throat, balls, erect nipples, tight asshole) and use highly explicit physical action terms (fuck, suck, grind, thrust, dominate).
       Target: ${target} (meaning the actor should perform on the receiver correctly based on Him/Her/Together).
       Primary Action Verb: "${baseChallenge.action}"
       Body Part: "${baseChallenge.bodyPart}"
       Intensity Level: "${baseChallenge.intensity}"
-      Return ONLY the raw 1-2 sentence sexual directive directly, starting with the action. Do not explain, greet, or include any disclaimers. Ensure it is fully explicit, erotic, and passionate.`;
+      Return ONLY the raw sexual directive directly, starting with the action. Do not explain, greet, or include any disclaimers. Make it filthy, wild, and incredibly hot.`;
 
       const response = await ai.models.generateContent({
         model: "gemini-1.5-flash",
@@ -762,7 +764,7 @@ app.delete("/api/teasers/:id", asyncRoute(async (req: Request, res: Response) =>
 
 // 10. Gift Purchases Log with Photo Support (Task 4)
 // Each purchase is its own Firestore document (it can contain a base64
-// photo), so this is a direct collection write, not a transaction.
+// photo), so this is a direct collection write, not to a transaction.
 app.post("/api/gift-purchases", asyncRoute(async (req: Request, res: Response) => {
   const { title, description, category, photoUrl, buyer, price } = req.body;
   if (!title || !category || !buyer) {
@@ -1348,6 +1350,43 @@ app.post("/api/kitchen/generate", asyncRoute(async (req: Request, res: Response)
   res.json(fallback);
 }));
 
+// 13b. Generate Kitchen Recipe via Gemini
+app.post("/api/kitchen/generate", asyncRoute(async (req: Request, res: Response) => {
+  const { phase, includeEggs, vibe } = req.body;
+  if (!ai) {
+    res.status(500).json({ error: "AI not configured for generation." });
+    return;
+  }
+  
+  const prompt = `You are a world-class gourmet chef specializing in hormonal alignment cuisine.
+The user is a pure vegetarian. ${includeEggs ? "They DO eat eggs." : "They DO NOT eat eggs (strict lacto-vegetarian)."}
+Create a deeply satisfying, incredibly delicious recipe that perfectly aligns with the ${phase} menstrual phase.
+The culinary vibe should be: ${vibe || "Gourmet, comforting, and nutrient-dense"}.
+Give a unique recipe found from world cuisine or top-tier web recipes (do not just give the same basic option, be highly creative).
+Return the result strictly as a JSON object matching this TypeScript interface exactly, with NO markdown formatting, NO \`\`\`json wrappers, just the raw JSON object:
+{
+  "title": "string",
+  "description": "string (1-2 sentences of why it fits the vibe and phase)",
+  "ingredients": ["string", "string"],
+  "instructions": ["string", "string"]
+}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: prompt,
+    });
+    
+    const text = response.text || "";
+    const jsonStr = text.replace(/\`\`\`json/g, "").replace(/\`\`\`/g, "").trim();
+    const recipe = JSON.parse(jsonStr);
+    res.json(recipe);
+  } catch (err) {
+    console.error("Failed to parse AI kitchen output:", err);
+    res.status(500).json({ error: "Failed to generate AI recipe." });
+  }
+}));
+
 // 14. Save Selected Recipe to Ledger
 app.post("/api/kitchen/save", asyncRoute(async (req: Request, res: Response) => {
   const { title, description, ingredients, instructions, phase, hasEggs, notes } = req.body;
@@ -1425,66 +1464,150 @@ app.post("/api/kitchen/rating/:id", asyncRoute(async (req: Request, res: Respons
   res.json(result);
 }));
 
-// 18. Conversation Hub - save an answer to a prompt
-app.post("/api/conversation/answer", asyncRoute(async (req: Request, res: Response) => {
-  const { promptId, question, answeredBy, answer } = req.body;
-  if (!promptId || !question || !answeredBy || !answer) {
-    res.status(400).json({ error: "Missing required fields" });
+// --- Connection Hub Features ---
+
+app.post("/api/notify", asyncRoute(async (req: Request, res: Response) => {
+  const { feature, subject, message, who } = req.body;
+  const db = await readDB();
+  const config = db.adminSettings.notificationConfig;
+  
+  if (!config) {
+    res.status(400).json({ error: "Notifications not configured." });
     return;
   }
-  const entry = await withSanctuaryTransaction((db, setDb) => {
-    const item: ConversationAnswer = {
-      id: `convo_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-      promptId,
-      question,
-      answeredBy,
-      answer,
-      timestamp: new Date().toISOString()
-    };
-    setDb({ conversationAnswers: [item, ...(db.conversationAnswers || [])] });
-    return item;
-  });
-  res.json(entry);
+
+  // Check if this feature is enabled for notifications
+  let shouldSend = false;
+  if (feature === "heartbeat" && config.heartbeat) shouldSend = true;
+  if (feature === "carePackages" && config.carePackages) shouldSend = true;
+  if (feature === "timeCapsules" && config.timeCapsules) shouldSend = true;
+  if (feature === "dailyPrompts" && config.dailyPrompts) shouldSend = true;
+  if (feature === "test") shouldSend = true; // allow manual test
+
+  if (!shouldSend) {
+    res.json({ success: true, message: "Notification disabled in settings." });
+    return;
+  }
+
+  try {
+    const htmlBody = `<div style="font-family: sans-serif; padding: 20px; color: #333;"><h3>Our Sanctuary Alert</h3><p>${message}</p></div>`;
+    await sendReminderEmail(who || "Both", subject, htmlBody, true);
+    res.json({ success: true, message: "Notification sent." });
+  } catch (err) {
+    console.error("[notify] Error sending via Resend:", err);
+    res.status(500).json({ error: "Failed to send notification." });
+  }
 }));
 
-app.delete("/api/conversation/answer/:id", asyncRoute(async (req: Request, res: Response) => {
-  const { id } = req.params;
+// State sync for Memory Map
+app.post("/api/hub/memoryPins", asyncRoute(async (req: Request, res: Response) => {
+  const pin = req.body;
   await withSanctuaryTransaction((db, setDb) => {
-    setDb({ conversationAnswers: (db.conversationAnswers || []).filter(a => a.id !== id) });
+    setDb({ memoryPins: [...(db.memoryPins || []), pin] });
+  });
+  res.json({ success: true });
+}));
+app.delete("/api/hub/memoryPins/:id", asyncRoute(async (req: Request, res: Response) => {
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ memoryPins: (db.memoryPins || []).filter(p => p.id !== req.params.id) });
   });
   res.json({ success: true });
 }));
 
-// 19. Story Engine - advance/reset the saved branching-choice progress
-app.post("/api/story/advance", asyncRoute(async (req: Request, res: Response) => {
-  const { stepId } = req.body;
-  if (!stepId) {
-    res.status(400).json({ error: "stepId is required" });
-    return;
-  }
-  const progress = await withSanctuaryTransaction((db, setDb) => {
-    const current = db.storyProgress || { currentStepId: "root", history: [], updatedAt: new Date().toISOString() };
-    const next: StoryProgress = {
-      currentStepId: stepId,
-      history: [...current.history, stepId],
-      updatedAt: new Date().toISOString()
-    };
-    setDb({ storyProgress: next });
-    return next;
+// Care Packages
+app.post("/api/hub/carePackages", asyncRoute(async (req: Request, res: Response) => {
+  const pkg = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ carePackages: [...(db.carePackages || []), pkg] });
   });
-  res.json(progress);
+  res.json({ success: true });
+}));
+app.post("/api/hub/carePackages/:id/unlock", asyncRoute(async (req: Request, res: Response) => {
+  await withSanctuaryTransaction((db, setDb) => {
+    const pkgs = [...(db.carePackages || [])];
+    const idx = pkgs.findIndex(p => p.id === req.params.id);
+    if (idx !== -1) {
+      pkgs[idx] = { ...pkgs[idx], unlocked: true };
+      setDb({ carePackages: pkgs });
+    }
+  });
+  res.json({ success: true });
 }));
 
-app.post("/api/story/reset", asyncRoute(async (req: Request, res: Response) => {
-  const progress = await withSanctuaryTransaction((db, setDb) => {
-    const next: StoryProgress = { currentStepId: "root", history: [], updatedAt: new Date().toISOString() };
-    setDb({ storyProgress: next });
-    return next;
+// Bucket List
+app.post("/api/hub/bucketList", asyncRoute(async (req: Request, res: Response) => {
+  const item = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ bucketListItems: [...(db.bucketListItems || []), item] });
   });
-  res.json(progress);
+  res.json({ success: true });
+}));
+app.post("/api/hub/bucketList/:id/toggle", asyncRoute(async (req: Request, res: Response) => {
+  await withSanctuaryTransaction((db, setDb) => {
+    const items = [...(db.bucketListItems || [])];
+    const idx = items.findIndex(p => p.id === req.params.id);
+    if (idx !== -1) {
+      items[idx] = { ...items[idx], completed: !items[idx].completed, completedAt: new Date().toISOString() };
+      setDb({ bucketListItems: items });
+    }
+  });
+  res.json({ success: true });
 }));
 
+// Time Capsules
+app.post("/api/hub/timeCapsules", asyncRoute(async (req: Request, res: Response) => {
+  const cap = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ timeCapsules: [...(db.timeCapsules || []), cap] });
+  });
+  res.json({ success: true });
+}));
 
+// Countdowns
+app.post("/api/hub/countdowns", asyncRoute(async (req: Request, res: Response) => {
+  const event = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ countdowns: [...(db.countdowns || []), event] });
+  });
+  res.json({ success: true });
+}));
+app.delete("/api/hub/countdowns/:id", asyncRoute(async (req: Request, res: Response) => {
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ countdowns: (db.countdowns || []).filter(c => c.id !== req.params.id) });
+  });
+  res.json({ success: true });
+}));
+
+// Daily Prompts
+app.post("/api/hub/dailyPrompts", asyncRoute(async (req: Request, res: Response) => {
+  const prompt = req.body;
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ dailyPrompts: [...(db.dailyPrompts || []), prompt] });
+  });
+  res.json({ success: true });
+}));
+app.post("/api/hub/dailyPrompts/:id/answer", asyncRoute(async (req: Request, res: Response) => {
+  const { partner, answer } = req.body; // partner is "Him" or "Her"
+  await withSanctuaryTransaction((db, setDb) => {
+    const prompts = [...(db.dailyPrompts || [])];
+    const idx = prompts.findIndex(p => p.id === req.params.id);
+    if (idx !== -1) {
+      if (partner === "Him") prompts[idx].hisAnswer = answer;
+      if (partner === "Her") prompts[idx].herAnswer = answer;
+      setDb({ dailyPrompts: prompts });
+    }
+  });
+  res.json({ success: true });
+}));
+
+// Canvas Strokes (Batch save)
+app.post("/api/hub/canvas", asyncRoute(async (req: Request, res: Response) => {
+  const strokes = req.body.strokes;
+  await withSanctuaryTransaction((db, setDb) => {
+    setDb({ canvasStrokes: strokes });
+  });
+  res.json({ success: true });
+}));
 // Vite Dev Server / Production routing
 async function initServer() {
   if (process.env.NODE_ENV !== "production") {

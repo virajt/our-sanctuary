@@ -2,59 +2,54 @@ import { WickedChallenge, PhotoCameraPrompt } from "../src/types.js";
 
 // --- WICKED CHAMBER LISTS ---
 export const ACTIONS = [
-  "gently suck and trail wet kisses along", "passionately lick and circle your tongue around",
-  "deeply kiss and nibble on", "firmly massage and sensually squeeze", "seductively trace your tongue and lips on",
-  "blow warm, heavy breaths directly against", "gently bite and double-kiss", "caress and massage with warm slick oil over",
-  "wetly lick in slow circular motions around", "tease with slow circular lips and light suction on",
-  "tease with warm wet strokes on", "firmly hold and stroke with high passion across",
-  "gently scratch and tickle with feather-light touch along", "run warm trembling fingertips and dry lips over",
-  "gently pinch and roll between your fingers", "breathe hotly and suckle on",
-  "use your mouth, tongue, and lips to deeply pleasure", "rub your bare chest and body heat against",
-  "use soft toys or fingers to apply deep vibration and teasing strokes near", "slowly slide your fingers or hand inside and around",
-  "gently slap and stroke the curves of", "press your lips and pelvis tightly against"
+  "ruthlessly fuck and deeply penetrate", "roughly grind your hips against", 
+  "forcefully hold down and savagely devour", "passionately suck and furiously ride",
+  "deeply deep-throat and aggressively milk", "mercilessly tease and edge",
+  "smother with wet kisses and fiercely bite", "spread wide and hungrily eat out",
+  "firmly command and aggressively thrust into", "slap hard and demand submission from",
+  "use your tongue to relentlessly stimulate", "pin down and wildly grind against",
+  "violently pull hair while completely dominating", "shove your fingers deep inside and stretch",
+  "bend over and completely surrender to", "relentlessly stroke and edge to the brink of begging",
+  "smother with your body weight and aggressively ravage", "force to their knees to worship",
+  "tie down and mercilessly overstimulate", "choke lightly while relentlessly pounding"
 ];
 
-// Body parts are split by who they belong to, so the generator can match
-// the right set to the actual target selected (Command Him / Command Her /
-// Together) - this is the fix for the core grammar/agreement bug: the
-// description used to pull from one combined list regardless of target,
-// so a "Command Him" challenge could end up describing "her clitoris",
-// which doesn't make sense for that target.
 export const HER_BODY_PARTS = [
-  "her sensitive clitoris and wet labia", "her warm perked nipples and full breasts",
-  "her highly sensitive G-spot and vaginal entrance", "her soft rounded buttocks and inner thighs",
-  "her lower stomach, waistline, and pubic mound", "the deep arch of her spine and lower back",
-  "her sensitive behind-the-knees and inner thighs", "her beautiful collarbones and neck pulse points"
+  "her dripping wet cunt and sensitive clit", "her tight vaginal canal and soaked labia",
+  "her sensitive G-spot and quivering thighs", "her perked nipples and sensitive breasts",
+  "her soft ass and tight asshole", "her throat and open mouth",
+  "her spread legs and exposed pussy", "her inner thighs and sensitive pubic mound"
 ];
 
 export const HIS_BODY_PARTS = [
-  "his hard erect penis and sensitive shaft", "his warm heavy balls and sensitive perineum",
-  "his strong waist, pubic area, and pelvic bone", "his chest, nipples, and muscular shoulders"
+  "his hard throbbing cock and sensitive shaft", "his heavy balls and dripping tip",
+  "his thick erect dick and tight perineum", "his face and open mouth",
+  "his strong chest and muscular thighs"
 ];
 
 export const SHARED_BODY_PARTS = [
-  "the highly sensitive nape of their neck and earlobes", "the sensitive crease of the hip and groin",
-  "the soft skin on the inner thighs right next to the sex organs", "each other's naked lips and open mouths"
+  "each other's naked lips and filthy mouths", "each other's sensitive erogenous zones",
+  "the highly sensitive skin between the thighs", "each other's exposed, flushed bodies"
 ];
 
 export const INTENSITIES = [
-  { level: "Teasing" as const, instruction: "Keep pressure minimal and build a slow ache of desire. Avoid rushing, ignore declarations of impatience." },
-  { level: "Sensual" as const, instruction: "Focus deeply on skin-to-skin touch and synchronous breathing. Sync your movements directly with their pulse." },
-  { level: "Intense" as const, instruction: "Use heavier touch, direct eye contact or blindfolds, and let primal desire take control." },
-  { level: "Wicked" as const, instruction: "Engage in highly dominant/submissive playful command. Fulfill an unspoken fantasy, leaving them completely breathless." }
+  { level: "Teasing" as const, instruction: "Edge them mercilessly. Force them to beg for release. Deny them completely until they are desperate and crying out for it." },
+  { level: "Sensual" as const, instruction: "Use slow, wet, agonizingly deep movements. Make every single thrust or lick last an eternity." },
+  { level: "Intense" as const, instruction: "Be rough, aggressive, and highly dominant. Leave marks, pull hair, and take absolute control without hesitation." },
+  { level: "Wicked" as const, instruction: "Completely degrade and dominate them. Unleash your wildest, most filthy fantasies. Break all boundaries and take exactly what you want." }
 ];
 
 export const DETAILS = [
-  "while maintaining fierce, unbroken eye contact",
-  "while blindfolded, letting touch be the only language",
-  "using a sensory item (like silk, a feather, ice, or skin-safe massage lotion)",
-  "while whispering a raw, seductive truth about why you desire them",
-  "guided strictly by their moans - retreating if they plead, and driving forward as they melt",
-  "in total silence, communicating only through touch, gaze, and slow kisses",
-  "counting to 30 slow seconds for each stroke, letting the tension stack",
-  "while they are restrained lightly or told to remain completely still",
-  "switching between warm breath and cold-teasing blows",
-  "while telling them exactly how beautiful and irresistible their body is right now"
+  "while forcing them to maintain eye contact and beg for more",
+  "while completely restraining their wrists and ankles",
+  "using spit, a vibrator, or a butt plug to amplify the sensation",
+  "while whispering filthy, degrading, and sexually explicit commands",
+  "ignoring their pleas and continuing until they are a shaking mess",
+  "while slapping their ass hard enough to leave a red handprint",
+  "forcing them to edge and ruining their orgasm at the last second",
+  "while blindfolded and gagged, making them entirely helpless",
+  "making them worship your body and swallow every drop",
+  "while telling them exactly what a good, obedient slut they are being"
 ];
 
 // --- PRIVATE GALLERY LISTS ---

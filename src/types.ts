@@ -84,6 +84,92 @@ export interface VaultPhoto {
 }
 
 export interface AdminSettings {
+export interface SensoryGift {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  receiver: "Him" | "Her" | "Together";
+  status: "Available" | "Claimed" | "Redeemed";
+  claimedBy?: "Him" | "Her";
+  claimedAt?: string;
+  redeemedAt?: string;
+  custom?: boolean;
+}
+
+export type CyclePhase = "Menstrual" | "Follicular" | "Ovulatory" | "Luteal";
+
+export interface PhaseProtocol {
+  phase: CyclePhase;
+  days: string;
+  description: string;
+  wifeSymptoms: string[];
+  husbandToDos: string[];
+  recommendedIntimacy: string;
+  foodsToProvide: string[];
+}
+
+export interface CycleLog {
+  id: string;
+  date: string;
+  symptoms: string[];
+  moods: string[];
+  intimacyLevel: "None" | "Light Touch" | "Sensual" | "Intense";
+  notes?: string;
+  flow?: "None" | "Spotting" | "Light" | "Medium" | "Heavy";
+  temperature?: number;
+  weight?: number;
+  waterIntake?: number;
+  sleepDuration?: number;
+  sex?: "None" | "Protected" | "Unprotected";
+}
+
+export interface PeriodConfig {
+  lastPeriodDate: string; // YYYY-MM-DD
+  cycleLength: number;    // default 28
+  periodLength: number;   // default 5
+  pregnancyMode?: boolean;
+  pregnancyStartDate?: string; // YYYY-MM-DD (Gestation LMP)
+}
+
+export interface CycleTrackerDB {
+  periodConfig: PeriodConfig;
+  cycleLogs: CycleLog[];
+}
+
+export interface WickedChallenge {
+  id: string;
+  action: string;
+  bodyPart: string;
+  intensity: "Teasing" | "Sensual" | "Intense" | "Wicked";
+  target: "Command Him" | "Command Her" | "Together";
+  howTo: string;
+  description: string;
+  timestamp: string;
+  rating?: number; // Optional couple feedback rating (1-5 hearts)
+}
+
+export interface PhotoCameraPrompt {
+  id: string;
+  theme: string;
+  setup: string;
+  angle: string;
+  target: "Command Him" | "Command Her" | "Together";
+  aestheticTip: string;
+  description: string;
+}
+
+export interface VaultPhoto {
+  id: string;
+  promptText: string;
+  imageUrl: string; // Base64 data or standard fallback
+  description: string; // Gemini-written / generated caption
+  target: "Command Him" | "Command Her" | "Together";
+  timestamp: string;
+  captionGeneratedByAI: boolean;
+}
+
+export interface AdminSettings {
   vibeIntensity: "Soft" | "Medium" | "High";
   wickedActions: string[];
   wickedBodyParts: string[];
@@ -93,6 +179,16 @@ export interface AdminSettings {
   theme?: "Passionate Red" | "Midnight Blue" | "Golden Hour";
   voucherCategories?: string[];
   giftCategories?: string[];
+  notificationConfig?: NotificationConfig;
+}
+
+export interface NotificationConfig {
+  heartbeat: boolean;
+  carePackages: boolean;
+  timeCapsules: boolean;
+  dailyPrompts: boolean;
+  hisEmail?: string;
+  herEmail?: string;
 }
 
 export interface ImportantDate {
@@ -174,22 +270,66 @@ export interface VisualLibraryItem {
   category: string;
   description: string;
   intimacyLevel: "Mild" | "Moderate" | "High" | "Deep";
-  mood: string;
 }
 
-export interface ConversationAnswer {
+// --- Connection Hub ---
+
+export interface MemoryPin {
   id: string;
-  promptId: string;
-  question: string;
-  answeredBy: "Him" | "Her" | "Together";
-  answer: string;
-  timestamp: string;
+  lat: number;
+  lng: number;
+  title: string;
+  description: string;
+  date: string;
 }
 
-export interface StoryProgress {
-  currentStepId: string;
-  history: string[]; // step IDs visited, in order
-  updatedAt: string;
+export interface CarePackage {
+  id: string;
+  sender: "Him" | "Her";
+  recipient: "Him" | "Her";
+  unlockDate: string;
+  message: string;
+  mediaUrl?: string; // photo or voice note URL
+  unlocked: boolean;
+}
+
+export interface BucketListItem {
+  id: string;
+  title: string;
+  completed: boolean;
+  completedAt?: string;
+  notes?: string;
+  imageUrl?: string;
+}
+
+export interface TimeCapsule {
+  id: string;
+  creator: "Him" | "Her" | "Together";
+  unlockDate: string;
+  content: string; // text or media URL
+  unlocked: boolean;
+}
+
+export interface CountdownEvent {
+  id: string;
+  title: string;
+  targetDate: string;
+  themeColor: string;
+}
+
+export interface DailyPrompt {
+  id: string;
+  date: string;
+  question: string;
+  hisAnswer?: string;
+  herAnswer?: string;
+}
+
+export interface DigitalCanvasStroke {
+  id: string;
+  points: { x: number; y: number }[];
+  color: string;
+  width: number;
 }
 
 export interface SanctuaryDB {
@@ -203,7 +343,14 @@ export interface SanctuaryDB {
   giftPurchases: GiftPurchase[];
   kitchenDishes?: KitchenDish[];
   realGifts?: Gift[]; // the new "Gifts" feature - actual gifts one partner gives the other
-  conversationAnswers?: ConversationAnswer[];
-  storyProgress?: StoryProgress;
   teasers?: Teaser[];
+  
+  // Connection Hub State
+  memoryPins?: MemoryPin[];
+  carePackages?: CarePackage[];
+  bucketListItems?: BucketListItem[];
+  timeCapsules?: TimeCapsule[];
+  countdowns?: CountdownEvent[];
+  dailyPrompts?: DailyPrompt[];
+  canvasStrokes?: DigitalCanvasStroke[];
 }

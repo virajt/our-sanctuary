@@ -3,27 +3,26 @@
 // notification (scripts/notify-build-complete.sh), but this is the
 // runtime/app-side sender, not the build-pipeline one.
 
+import { readDB } from "./firestoreDb";
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
-const HIS_EMAIL = process.env.HIS_EMAIL || "";
-const HER_EMAIL = process.env.HER_EMAIL || "";
 
 export type EmailRecipient = "Him" | "Her" | "Both";
 
-function resolveRecipients(who: EmailRecipient): string[] {
+export async function sendReminderEmail(who: EmailRecipient, subject: string, body: string, isHtml: boolean = false): Promise<void> {
+  const db = await readDB();
+  const config = db.adminSettings.notificationConfig;
+  
   const addrs: string[] = [];
   if (who === "Him" || who === "Both") {
-    if (HIS_EMAIL) addrs.push(HIS_EMAIL);
+    if (config?.hisEmail) addrs.push(config.hisEmail);
   }
   if (who === "Her" || who === "Both") {
-    if (HER_EMAIL) addrs.push(HER_EMAIL);
+    if (config?.herEmail) addrs.push(config.herEmail);
   }
-  return addrs;
-}
 
-export async function sendReminderEmail(who: EmailRecipient, subject: string, body: string): Promise<void> {
-  const recipients = resolveRecipients(who);
-  if (recipients.length === 0) {
-    console.warn(`[email] No configured recipients for "${who}" - set HIS_EMAIL/HER_EMAIL env vars. Skipping: ${subject}`);
+  if (addrs.length === 0) {
+    console.warn(`[email] No configured recipients for "${who}" - set emails in Admin Panel. Skipping: ${subject}`);
     return;
   }
   if (!RESEND_API_KEY) {
@@ -40,9 +39,9 @@ export async function sendReminderEmail(who: EmailRecipient, subject: string, bo
       },
       body: JSON.stringify({
         from: "Our Sanctuary <onboarding@resend.dev>",
-        to: recipients,
+        to: addrs,
         subject,
-        text: body,
+        ...(isHtml ? { html: body } : { text: body }),
       }),
     });
     if (!res.ok) {

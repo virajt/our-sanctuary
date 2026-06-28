@@ -39,7 +39,7 @@ export default function AdminPanel({
   onUpdatePeriodConfig,
   onAddPeriodLog,
 }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"general" | "database" | "dictionaries" | "import" | "calendar">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "notifications" | "database" | "dictionaries" | "categories" | "import" | "calendar">("general");
 
   // Local state for dictionary configurations
   const [newAction, setNewAction] = useState("");
@@ -272,7 +272,7 @@ export default function AdminPanel({
 
         {/* Tab Selection */}
         <div className="flex bg-luxury-950/80 p-1.5 rounded-2xl border border-white/5 gap-1.5 flex-wrap">
-          {(["general", "calendar", "dictionaries", "import", "database"] as const).map((tab) => (
+          {(["general", "notifications", "calendar", "dictionaries", "categories", "import", "database"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => {
@@ -430,6 +430,87 @@ export default function AdminPanel({
           </motion.div>
         )}
 
+        {activeTab === "notifications" && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-8"
+          >
+            <div className="bg-luxury-900/80 border border-luxury-800 rounded-3xl p-8 space-y-6">
+              <div className="border-b border-luxury-800 pb-3">
+                <h3 className="font-serif text-xl font-medium text-white/90 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-red-500" />
+                  Email Configuration
+                </h3>
+                <p className="text-xs text-neutral-500">Configure email addresses for couple notifications.</p>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-xs text-neutral-400 font-medium block uppercase tracking-wider">His Email</label>
+                <input
+                  type="email"
+                  value={settings.notificationConfig?.hisEmail || ""}
+                  onChange={(e) => onUpdateSettings({ notificationConfig: { ...settings.notificationConfig, hisEmail: e.target.value } as any })}
+                  placeholder="e.g. him@example.com"
+                  className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-800"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-xs text-neutral-400 font-medium block uppercase tracking-wider">Her Email</label>
+                <input
+                  type="email"
+                  value={settings.notificationConfig?.herEmail || ""}
+                  onChange={(e) => onUpdateSettings({ notificationConfig: { ...settings.notificationConfig, herEmail: e.target.value } as any })}
+                  placeholder="e.g. her@example.com"
+                  className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-800"
+                />
+              </div>
+            </div>
+
+            <div className="bg-luxury-900/80 border border-luxury-800 rounded-3xl p-8 space-y-6">
+              <div className="border-b border-luxury-800 pb-3">
+                <h3 className="font-serif text-xl font-medium text-white/90 flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-red-500" />
+                  Connection Hub Alerts
+                </h3>
+                <p className="text-xs text-neutral-500">Toggle which features send email notifications.</p>
+              </div>
+
+              <div className="space-y-4">
+                {[
+                  { key: "heartbeat", label: "Heartbeat Sync Pulses" },
+                  { key: "carePackages", label: "Care Package Unlocks" },
+                  { key: "timeCapsules", label: "Time Capsule Unlocks" },
+                  { key: "dailyPrompts", label: "Daily Prompts Reminders" },
+                ].map((toggle) => (
+                  <div key={toggle.key} className="flex items-center justify-between border-b border-luxury-800/40 pb-2">
+                    <span className="text-sm text-neutral-300">{toggle.label}</span>
+                    <button
+                      onClick={() => onUpdateSettings({
+                        notificationConfig: {
+                          ...settings.notificationConfig,
+                          [toggle.key]: !(settings.notificationConfig as any)?.[toggle.key]
+                        } as any
+                      })}
+                      className={`w-10 h-5 rounded-full p-0.5 transition-colors duration-300 shrink-0 cursor-pointer ${
+                        (settings.notificationConfig as any)?.[toggle.key] ? "bg-red-700 glow-red" : "bg-neutral-850"
+                      }`}
+                    >
+                      <div className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ${
+                        (settings.notificationConfig as any)?.[toggle.key] ? "translate-x-5" : "translate-x-0"
+                      }`} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-neutral-500 italic font-light leading-relaxed">
+                Technical alerts (build approval, deployment) are hardcoded in GCP configuration.
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         {activeTab === "calendar" && (
           <motion.div
             initial={{ opacity: 0, y: 5 }}
@@ -557,6 +638,17 @@ export default function AdminPanel({
                 </div>
               </form>
 
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === "categories" && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-8"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Voucher Categories - fully admin-managed list, not just additions on top of a fixed default */}
               <form onSubmit={handleAddVoucherCategory} className="bg-luxury-900/60 p-6 rounded-3xl border border-luxury-800 space-y-4">
                 <h4 className="font-serif text-sm font-bold uppercase tracking-wider text-neutral-300">Voucher Categories</h4>
@@ -624,7 +716,6 @@ export default function AdminPanel({
                   {(settings.giftCategories || []).length === 0 && <span className="text-[10px] text-neutral-600 block italic">No categories yet - add at least one above.</span>}
                 </div>
               </form>
-
             </div>
           </motion.div>
         )}
