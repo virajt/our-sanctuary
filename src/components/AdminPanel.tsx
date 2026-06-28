@@ -48,9 +48,14 @@ export default function AdminPanel({
   const [newVoucherCategory, setNewVoucherCategory] = useState("");
   const [newGiftCategory, setNewGiftCategory] = useState("");
 
-  // Notification Email States
-  const [hisEmail, setHisEmail] = useState(settings.notificationConfig?.hisEmail || "");
-  const [herEmail, setHerEmail] = useState(settings.notificationConfig?.herEmail || "");
+  // Unified Local Settings State
+  const [localSettings, setLocalSettings] = useState<AdminSettings>(settings);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  React.useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
 
   // Bulk Importer States
   const [importFormat, setImportFormat] = useState<"json" | "csv">("json");
@@ -453,9 +458,11 @@ export default function AdminPanel({
                 <label className="text-xs text-neutral-400 font-medium block uppercase tracking-wider">His Email</label>
                 <input
                   type="email"
-                  value={hisEmail}
-                  onChange={(e) => setHisEmail(e.target.value)}
-                  onBlur={() => onUpdateSettings({ notificationConfig: { ...settings.notificationConfig, hisEmail } as any })}
+                  value={localSettings.notificationConfig?.hisEmail || ""}
+                  onChange={(e) => setLocalSettings({
+                    ...localSettings,
+                    notificationConfig: { ...(localSettings.notificationConfig as any), hisEmail: e.target.value }
+                  })}
                   placeholder="e.g. him@example.com"
                   className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-800"
                 />
@@ -465,9 +472,11 @@ export default function AdminPanel({
                 <label className="text-xs text-neutral-400 font-medium block uppercase tracking-wider">Her Email</label>
                 <input
                   type="email"
-                  value={herEmail}
-                  onChange={(e) => setHerEmail(e.target.value)}
-                  onBlur={() => onUpdateSettings({ notificationConfig: { ...settings.notificationConfig, herEmail } as any })}
+                  value={localSettings.notificationConfig?.herEmail || ""}
+                  onChange={(e) => setLocalSettings({
+                    ...localSettings,
+                    notificationConfig: { ...(localSettings.notificationConfig as any), herEmail: e.target.value }
+                  })}
                   placeholder="e.g. her@example.com"
                   className="w-full bg-luxury-950 border border-luxury-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-800"
                 />
@@ -489,30 +498,56 @@ export default function AdminPanel({
                   { key: "carePackages", label: "Care Package Unlocks" },
                   { key: "timeCapsules", label: "Time Capsule Unlocks" },
                   { key: "dailyPrompts", label: "Daily Prompts Reminders" },
-                ].map((toggle) => (
-                  <div key={toggle.key} className="flex items-center justify-between border-b border-luxury-800/40 pb-2">
-                    <span className="text-sm text-neutral-300">{toggle.label}</span>
-                    <button
-                      onClick={() => onUpdateSettings({
-                        notificationConfig: {
-                          ...settings.notificationConfig,
-                          [toggle.key]: !(settings.notificationConfig as any)?.[toggle.key]
-                        } as any
-                      })}
-                      className={`w-10 h-5 rounded-full p-0.5 transition-colors duration-300 shrink-0 cursor-pointer ${
-                        (settings.notificationConfig as any)?.[toggle.key] ? "bg-red-700 glow-red" : "bg-neutral-850"
-                      }`}
-                    >
-                      <div className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ${
-                        (settings.notificationConfig as any)?.[toggle.key] ? "translate-x-5" : "translate-x-0"
-                      }`} />
-                    </button>
-                  </div>
-                ))}
+                ].map((toggle) => {
+                  const isActive = (localSettings.notificationConfig as any)?.[toggle.key] || false;
+                  return (
+                    <div key={toggle.key} className="flex items-center justify-between border-b border-luxury-800/40 pb-2">
+                      <span className="text-sm text-neutral-300">{toggle.label}</span>
+                      <button
+                        onClick={() => setLocalSettings({
+                          ...localSettings,
+                          notificationConfig: {
+                            ...(localSettings.notificationConfig as any),
+                            [toggle.key]: !isActive
+                          }
+                        })}
+                        className={`w-10 h-5 rounded-full p-0.5 transition-colors duration-300 shrink-0 cursor-pointer ${
+                          isActive ? "bg-red-700 glow-red" : "bg-neutral-850"
+                        }`}
+                      >
+                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ${
+                          isActive ? "translate-x-5" : "translate-x-0"
+                        }`} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
               <p className="text-[11px] text-neutral-500 italic font-light leading-relaxed">
                 Technical alerts (build approval, deployment) are hardcoded in GCP configuration.
               </p>
+            </div>
+            
+            <div className="pt-6 border-t border-luxury-800/50 flex items-center justify-between">
+              <span className="text-xs text-neutral-400">Settings must be saved to apply changes.</span>
+              <button
+                onClick={async () => {
+                  setIsSavingSettings(true);
+                  await onUpdateSettings(localSettings);
+                  setIsSavingSettings(false);
+                  setSaveSuccess(true);
+                  setTimeout(() => setSaveSuccess(false), 3000);
+                }}
+                disabled={isSavingSettings}
+                className="bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-200 px-6 py-2.5 rounded-full text-sm font-medium transition-all shadow-[0_0_15px_rgba(220,38,38,0.15)] flex items-center gap-2"
+              >
+                {isSavingSettings ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : saveSuccess ? (
+                  <Check className="w-4 h-4" />
+                ) : null}
+                {isSavingSettings ? "Saving..." : saveSuccess ? "Saved Successfully" : "Save Settings"}
+              </button>
             </div>
           </motion.div>
         )}
