@@ -15,7 +15,7 @@ const EmberFieldBackground = React.lazy(() => import("./components/effects/Ember
 import { useAuth } from "./hooks/useAuth";
 import { apiFetch } from "./lib/apiFetch";
 import { Gift, Flame, Shield, Calendar, Settings, Sparkles, Heart, Bell, Tag, Utensils, Lock, Eye, EyeOff, KeyRound, LogOut, PackageCheck, Clock } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "motion/react";
 
 export default function App() {
   const [activePath, setActivePath] = useState<string>(
@@ -585,6 +585,18 @@ export default function App() {
     }
   };
 
+  // 3D Global Mouse Parallax
+  const mouseX = useMotionValue(typeof window !== 'undefined' ? window.innerWidth / 2 : 0);
+  const mouseY = useMotionValue(typeof window !== 'undefined' ? window.innerHeight / 2 : 0);
+  
+  // Spring physics for buttery smooth tracking
+  const smoothX = useSpring(mouseX, { damping: 30, stiffness: 100 });
+  const smoothY = useSpring(mouseY, { damping: 30, stiffness: 100 });
+  
+  // Transform mouse position into extreme 3D rotation angles (-15deg to 15deg)
+  const rotateX = useTransform(smoothY, [0, typeof window !== 'undefined' ? window.innerHeight : 1000], [10, -10]);
+  const rotateY = useTransform(smoothX, [0, typeof window !== 'undefined' ? window.innerWidth : 1000], [-10, 10]);
+
   // Primary Landing Page authentication gate (Google Sign-In, server-verified)
   // This MUST run before the database-loading check below, since the
   // database only ever loads once a Google session exists - otherwise
@@ -646,7 +658,15 @@ export default function App() {
     : "passionate-red";
 
   return (
-    <div className={`min-h-screen text-neutral-100 flex flex-col justify-between ${themeClass}`} id="sanctuary-app">
+    <div 
+      className={`min-h-screen text-neutral-100 flex flex-col justify-between ${themeClass} overflow-hidden`} 
+      id="sanctuary-app"
+      onMouseMove={(e) => {
+        mouseX.set(e.clientX);
+        mouseY.set(e.clientY);
+      }}
+      style={{ perspective: "1500px" }}
+    >
       <Suspense fallback={null}>
         <EmberFieldBackground theme={emberTheme} intensity="ambient" />
       </Suspense>
@@ -664,8 +684,11 @@ export default function App() {
         )}
       </AnimatePresence>
       
-      {/* 1. PRIMARY CONTAINER */}
-      <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* 1. PRIMARY CONTAINER with 3D Tilt */}
+      <motion.div 
+        style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+        className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10"
+      >
         
         {/* Dynamic Logo Title Card */}
         <header className="text-center space-y-3 pt-6 pb-2 relative">
@@ -990,8 +1013,7 @@ export default function App() {
 
           </AnimatePresence>
         </main>
-
-      </div>
+      </motion.div>
 
       {/* 2. FOOTER */}
       <footer className="w-full bg-luxury-950/90 py-6 border-t border-luxury-900 select-none text-center text-[10px] text-neutral-500 font-mono tracking-widest uppercase">
